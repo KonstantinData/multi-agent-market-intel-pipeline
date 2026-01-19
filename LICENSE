@@ -1,0 +1,51 @@
+# Multi-Agent Market Intel Pipeline License (Non-Commercial)
+
+Copyright (c) 2026 Konstantin Milonas
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to use,
+copy, modify, and distribute the Software for NON-COMMERCIAL purposes only,
+subject to the following conditions:
+
+1) Non-Commercial Use Only
+You may use the Software only for personal, educational, research, or internal
+evaluation purposes that are not primarily intended for or directed toward
+commercial advantage or monetary compensation.
+
+2) Commercial Use Requires a Separate License
+Any commercial use of the Software is strictly prohibited without an explicit
+written commercial license agreement from the copyright holder.
+Commercial use includes, but is not limited to:
+- incorporating the Software into a product or service that is sold or licensed
+- offering the Software as part of a paid consultancy or managed service
+- using the Software to generate revenue, reduce costs, or otherwise create
+  commercial advantage for an organization beyond internal evaluation
+
+3) Attribution
+You must retain this copyright notice and this permission notice in all copies
+or substantial portions of the Software.
+
+4) No Warranty
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+# Commercial Licensing
+
+This repository is available under a Non-Commercial license for public access,
+learning, and evaluation.
+
+Commercial usage is available under a paid commercial license.
+
+Commercial usage includes:
+- integrating the code into a product or service offered for payment
+- providing paid consulting/services based on this codebase
+- using the system in production for a business beyond evaluation
+
+To request a commercial license, please contact:
+<konstantin.milonas@condata.io>
+
