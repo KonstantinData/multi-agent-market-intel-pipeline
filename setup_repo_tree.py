@@ -1,19 +1,40 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
+from typing import Iterable
 
 REPO_NAME = "multi-agent-market-intel-pipeline"
 
 
+# Files that should be created as binary placeholders (empty bytes).
+BINARY_PLACEHOLDERS = {".png", ".jpg", ".jpeg", ".webp", ".pdf"}
+
+
 def touch_file(path: Path) -> None:
+    """
+    Create an empty file if it does not exist.
+    Uses binary mode for known binary placeholders to avoid invalid text encoding.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
-    if not path.exists():
+
+    if path.exists():
+        return
+
+    if path.suffix.lower() in BINARY_PLACEHOLDERS:
+        path.write_bytes(b"")
+    else:
         path.write_text("", encoding="utf-8")
 
 
+def touch_files(repo_root: Path, relative_paths: Iterable[str]) -> None:
+    for rel in relative_paths:
+        touch_file(repo_root / rel)
+
+
 def create_repo_tree(repo_root: Path) -> None:
+    # ---------------------------------------------------------------------
     # Top-level files
+    # ---------------------------------------------------------------------
     top_files = [
         "README.md",
         "LICENSE",
@@ -23,55 +44,79 @@ def create_repo_tree(repo_root: Path) -> None:
         "requirements.txt",
         "requirements-dev.txt",
     ]
+    touch_files(repo_root, top_files)
 
-    for f in top_files:
-        touch_file(repo_root / f)
+    # ---------------------------------------------------------------------
+    # .github workflows and governance templates
+    # ---------------------------------------------------------------------
+    github_files = [
+        ".github/workflows/ci.yml",
+        ".github/workflows/pipeline_manual_run.yml",
+        ".github/pull_request_template.md",
+        ".github/ISSUE_TEMPLATE/feature_request.yml",
+        ".github/ISSUE_TEMPLATE/bug_report.yml",
+        ".github/ISSUE_TEMPLATE/governance_finding.yml",
+        ".github/ISSUE_TEMPLATE/config.yml",
+    ]
+    touch_files(repo_root, github_files)
 
-    # .github workflows
-    touch_file(repo_root / ".github/workflows/ci.yml")
-    touch_file(repo_root / ".github/workflows/pipeline_manual_run.yml")
-
+    # ---------------------------------------------------------------------
     # docs
+    # ---------------------------------------------------------------------
     docs_files = [
+        # Architecture docs
         "docs/architecture/00_overview.md",
         "docs/architecture/01_workflow_parallel_dag.md",
         "docs/architecture/02_output_contracts.md",
         "docs/architecture/03_entity_registry_and_id_policy.md",
         "docs/architecture/04_validation_and_gatekeeping.md",
         "docs/architecture/05_run_artifacts_and_auditability.md",
+        # ADRs (Governance / decision traceability)
+        "docs/adr/ADR-000-index.md",
+        "docs/adr/ADR-001-parallel-fanout-fanin.md",
+        "docs/adr/ADR-002-contract-gated-validation.md",
+        "docs/adr/ADR-003-central-entity-registry-and-ids.md",
+        "docs/adr/ADR-004-run-artifact-model.md",
+        # Diagrams
         "docs/diagrams/workflow_parallel.drawio",
         "docs/diagrams/workflow_parallel.png",
+        # Examples
         "docs/examples/example_input_case.json",
         "docs/examples/example_step_output.json",
         "docs/examples/example_validator_result.json",
         "docs/examples/example_entity_registry.json",
     ]
-    for f in docs_files:
-        touch_file(repo_root / f)
+    touch_files(repo_root, docs_files)
 
-    # configs
+    # ---------------------------------------------------------------------
+    # configs (pipeline + contracts + rules)
+    # ---------------------------------------------------------------------
     configs_files = [
+        # pipeline configs
         "configs/pipeline/dag.yml",
         "configs/pipeline/step_contracts.yml",
         "configs/pipeline/retry_policy.yml",
         "configs/pipeline/output_paths.yml",
         "configs/pipeline/concurrency_limits.yml",
+        # contracts
         "configs/contracts/entity_schema.json",
         "configs/contracts/step_output_schema.json",
         "configs/contracts/validator_result_schema.json",
         "configs/contracts/source_schema.json",
         "configs/contracts/crossref_schema.json",
         "configs/contracts/report_section_schema.json",
+        # rules
         "configs/rules/id_policy.yml",
         "configs/rules/normalization_rules.yml",
         "configs/rules/dedupe_rules.yml",
         "configs/rules/validator_rules.yml",
         "configs/rules/ascii_policy.yml",
     ]
-    for f in configs_files:
-        touch_file(repo_root / f)
+    touch_files(repo_root, configs_files)
 
+    # ---------------------------------------------------------------------
     # src structure
+    # ---------------------------------------------------------------------
     src_files = [
         "src/__init__.py",
         # orchestrator
@@ -120,10 +165,11 @@ def create_repo_tree(repo_root: Path) -> None:
         "src/exporters/index_builder.py",
         "src/exporters/crossref_matrix_exporter.py",
     ]
-    for f in src_files:
-        touch_file(repo_root / f)
+    touch_files(repo_root, src_files)
 
-    # agents folders
+    # ---------------------------------------------------------------------
+    # Agents folders (clear function naming stays intact)
+    # ---------------------------------------------------------------------
     agent_dirs = [
         "ag00_intake_normalization",
         "ag10_identity_legal",
@@ -148,27 +194,33 @@ def create_repo_tree(repo_root: Path) -> None:
         touch_file(repo_root / f"src/agents/{d}/__init__.py")
         touch_file(repo_root / f"src/agents/{d}/agent.py")
 
-    # AG-42 extras
+    # AG-42 extras (Map-Reduce)
     touch_file(repo_root / "src/agents/ag42_customers_of_manufacturers/map_tasks.py")
     touch_file(repo_root / "src/agents/ag42_customers_of_manufacturers/reduce_merge.py")
 
+    # ---------------------------------------------------------------------
     # scripts
+    # ---------------------------------------------------------------------
     script_files = [
         "scripts/run_local.sh",
         "scripts/run_local.ps1",
         "scripts/validate_run.sh",
         "scripts/clean_runs.sh",
     ]
-    for f in script_files:
-        touch_file(repo_root / f)
+    touch_files(repo_root, script_files)
 
-    # runs + assets
+    # ---------------------------------------------------------------------
+    # runs + assets (NOT in src; runtime outputs / placeholders)
+    # ---------------------------------------------------------------------
     (repo_root / "runs").mkdir(parents=True, exist_ok=True)
     touch_file(repo_root / "runs/.gitkeep")
+
     (repo_root / "assets").mkdir(parents=True, exist_ok=True)
     touch_file(repo_root / "assets/.gitkeep")
 
+    # ---------------------------------------------------------------------
     # tests
+    # ---------------------------------------------------------------------
     test_files = [
         "tests/__init__.py",
         "tests/unit/test_id_allocator.py",
@@ -178,8 +230,7 @@ def create_repo_tree(repo_root: Path) -> None:
         "tests/unit/test_crossref_integrity.py",
         "tests/integration/test_pipeline_smoke.py",
     ]
-    for f in test_files:
-        touch_file(repo_root / f)
+    touch_files(repo_root, test_files)
 
 
 def main() -> None:
