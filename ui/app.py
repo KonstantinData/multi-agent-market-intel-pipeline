@@ -12,7 +12,7 @@ import streamlit as st
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-RUNS_DIR = REPO_ROOT / "runs"
+RUNS_DIR = REPO_ROOT / "artifacts" / "runs"
 
 
 @dataclass
@@ -143,16 +143,16 @@ tab_intake, tab_monitor, tab_results = st.tabs(["1) Intake", "2) Run Monitor", "
 with tab_intake:
     st.subheader("Intake (Required)")
     with st.form("intake_form", clear_on_submit=False):
-        company_name = st.text_input("Company name *", placeholder="Liquisto Technologies GmbH")
-        web_domain = st.text_input("Web domain *", placeholder="liquisto.com")
+        company_name = st.text_input("Company name *", placeholder="Full Company Name, e.g: Liquisto Technologies GmbH")
+        web_domain = st.text_input("Web domain *", placeholder="Full Web Domain, e.g: liquisto.com")
 
         st.subheader("Intake (Optional)")
         col1, col2, col3 = st.columns(3)
         with col1:
-            city = st.text_input("City", placeholder="Stuttgart")
-            postal_code = st.text_input("Postal code", placeholder="70173")
+            city = st.text_input("City", placeholder="City")
+            postal_code = st.text_input("Postal code", placeholder="postal code")
         with col2:
-            country = st.text_input("Country", placeholder="Germany")
+            country = st.text_input("Country", placeholder="Head Office Country")
             parent_company = st.text_input("Parent company", placeholder="n/v")
         with col3:
             child_company = st.text_input("Child company", placeholder="n/v")

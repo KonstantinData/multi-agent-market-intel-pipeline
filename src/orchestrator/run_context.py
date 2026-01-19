@@ -15,7 +15,7 @@ class RunContext:
 
     @staticmethod
     def from_run_id(repo_root: Path, run_id: str) -> "RunContext":
-        run_root = repo_root / "runs" / run_id
+        run_root = repo_root / "artifacts" / "runs" / run_id
         meta_dir = run_root / "meta"
         steps_dir = run_root / "steps"
         logs_dir = run_root / "logs"
