@@ -1,0 +1,31 @@
+steps:
+  - step_id: "AG-00"
+    agent_name: "ag00_intake_normalization"
+    purpose: "Normalize raw intake into deterministic case_normalized payload"
+    inputs:
+      required_case_fields:
+        - "company_name"
+        - "web_domain"
+    outputs:
+      required_sections:
+        - "step_meta"
+        - "case_normalized"
+        - "target_entity_stub"
+        - "entities_delta"
+        - "relations_delta"
+        - "findings"
+      case_normalized_required_fields:
+        - "company_name_canonical"
+        - "web_domain_normalized"
+        - "entity_key"
+      target_entity_stub_required_fields:
+        - "entity_type"
+        - "entity_name"
+        - "domain"
+        - "entity_key"
+    validation:
+      hard_fail_if:
+        - "missing_required_sections"
+        - "missing_required_fields"
+        - "invalid_domain_format"
+        - "invalid_entity_key"
