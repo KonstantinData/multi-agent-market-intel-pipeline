@@ -70,7 +70,12 @@ def main() -> None:
             {"code": e.code, "message": e.message, "path": e.path}
             for e in vr.errors
         ],
+        "warnings": [
+            {"code": w.code, "message": w.message, "path": w.path}
+            for w in vr.warnings
+        ],
     }
+
 
     write_json(step_dir / "validator.json", validator_payload)
     log_line(log_path, f"AG-00 gatekeeper ok={vr.ok}")

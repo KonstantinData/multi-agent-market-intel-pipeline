@@ -29,6 +29,36 @@ def test_ag00_gatekeeper_passes_valid_output() -> None:
     vr = validate_ag00_output(output, contract)
     assert vr.ok is True
     assert vr.errors == []
+    assert isinstance(vr.warnings, list)
+
+
+def test_ag00_gatekeeper_warns_low_quality_company_name() -> None:
+    contract = load_step_contracts("configs/pipeline/step_contracts.yml")["AG-00"]
+
+    output = {
+        "step_meta": {"step_id": "AG-00", "agent_name": "ag00_intake_normalization"},
+        "case_normalized": {
+            "company_name_canonical": "condata",
+            "web_domain_normalized": "condata.io",
+            "entity_key": "domain:condata.io",
+            "domain_valid": True,
+        },
+        "target_entity_stub": {
+            "entity_type": "target_company",
+            "entity_name": "condata",
+            "domain": "condata.io",
+            "entity_key": "domain:condata.io",
+        },
+        "entities_delta": [],
+        "relations_delta": [],
+        "findings": [{"summary": "Intake normalized", "notes": []}],
+        "sources": [],
+    }
+
+    vr = validate_ag00_output(output, contract)
+    assert vr.ok is True
+    assert vr.errors == []
+    assert len(vr.warnings) >= 1
 
 
 def test_ag00_gatekeeper_fails_invalid_domain() -> None:

@@ -146,6 +146,8 @@ venv.bak/
 # ignore all generated run artifacts, keep placeholder
 artifacts/runs/**
 !artifacts/runs/.gitkeep
+artifacts/runs_archived/*
+!artifacts/runs_archived/.gitkeep
 
 
 

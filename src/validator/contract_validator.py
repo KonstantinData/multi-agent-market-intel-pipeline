@@ -10,7 +10,7 @@ from src.validator import error_codes
 
 
 @dataclass(frozen=True)
-class ValidationError:
+class ValidationIssue:
     code: str
     message: str
     path: str
@@ -20,7 +20,8 @@ class ValidationError:
 class ValidatorResult:
     ok: bool
     step_id: str
-    errors: List[ValidationError]
+    errors: List[ValidationIssue]
+    warnings: List[ValidationIssue]
 
 
 def load_step_contracts(step_contracts_path: str) -> Dict[str, Any]:
@@ -30,16 +31,34 @@ def load_step_contracts(step_contracts_path: str) -> Dict[str, Any]:
     return {s["step_id"]: s for s in steps}
 
 
+def _is_low_quality_company_name(name: str) -> bool:
+    """
+    Heuristic WARN rule (not FAIL):
+    - single token
+    - all lowercase
+    Example: "condata"
+    """
+    if not name:
+        return False
+    n = name.strip()
+    if " " in n:
+        return False
+    if n.lower() == n and len(n) >= 3:
+        return True
+    return False
+
+
 def validate_ag00_output(output: Dict[str, Any], contract: Dict[str, Any]) -> ValidatorResult:
     step_id = contract["step_id"]
-    errors: List[ValidationError] = []
+    errors: List[ValidationIssue] = []
+    warnings: List[ValidationIssue] = []
 
     # Required sections
     required_sections = contract["outputs"]["required_sections"]
     for section in required_sections:
         if section not in output:
             errors.append(
-                ValidationError(
+                ValidationIssue(
                     code=error_codes.MISSING_REQUIRED_SECTIONS,
                     message=f"Missing required section: {section}",
                     path=f"$.{section}",
@@ -47,14 +66,14 @@ def validate_ag00_output(output: Dict[str, Any], contract: Dict[str, Any]) -> Va
             )
 
     if errors:
-        return ValidatorResult(ok=False, step_id=step_id, errors=errors)
+        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
 
     # Required fields in case_normalized
     cn = output.get("case_normalized", {})
     for field in contract["outputs"]["case_normalized_required_fields"]:
         if not cn.get(field):
             errors.append(
-                ValidationError(
+                ValidationIssue(
                     code=error_codes.MISSING_REQUIRED_FIELDS,
                     message=f"Missing required case_normalized field: {field}",
                     path=f"$.case_normalized.{field}",
@@ -66,7 +85,7 @@ def validate_ag00_output(output: Dict[str, Any], contract: Dict[str, Any]) -> Va
     for field in contract["outputs"]["target_entity_stub_required_fields"]:
         if not stub.get(field):
             errors.append(
-                ValidationError(
+                ValidationIssue(
                     code=error_codes.MISSING_REQUIRED_FIELDS,
                     message=f"Missing required target_entity_stub field: {field}",
                     path=f"$.target_entity_stub.{field}",
@@ -77,7 +96,7 @@ def validate_ag00_output(output: Dict[str, Any], contract: Dict[str, Any]) -> Va
     domain = cn.get("web_domain_normalized", "")
     if domain and not is_valid_domain(domain):
         errors.append(
-            ValidationError(
+            ValidationIssue(
                 code=error_codes.INVALID_DOMAIN_FORMAT,
                 message=f"Invalid domain format: {domain}",
                 path="$.case_normalized.web_domain_normalized",
@@ -89,11 +108,23 @@ def validate_ag00_output(output: Dict[str, Any], contract: Dict[str, Any]) -> Va
     actual_entity_key = cn.get("entity_key", "")
     if expected_entity_key and actual_entity_key != expected_entity_key:
         errors.append(
-            ValidationError(
+            ValidationIssue(
                 code=error_codes.INVALID_ENTITY_KEY,
                 message=f"entity_key must be '{expected_entity_key}'",
                 path="$.case_normalized.entity_key",
             )
         )
 
-    return ValidatorResult(ok=(len(errors) == 0), step_id=step_id, errors=errors)
+    # NEW: Company name sanity (WARN, not FAIL)
+    company_name = str(cn.get("company_name_canonical", "")).strip()
+    if _is_low_quality_company_name(company_name):
+        warnings.append(
+            ValidationIssue(
+                code=error_codes.LOW_QUALITY_COMPANY_NAME,
+                message="Company name looks low-quality (single token, all lowercase). Consider correcting intake.",
+                path="$.case_normalized.company_name_canonical",
+            )
+        )
+
+    ok = len(errors) == 0
+    return ValidatorResult(ok=ok, step_id=step_id, errors=errors, warnings=warnings)
