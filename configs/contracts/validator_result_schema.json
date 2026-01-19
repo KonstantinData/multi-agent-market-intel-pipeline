@@ -1,0 +1,26 @@
+step_id: "AG-XX"
+agent_name: "agXX_name"
+purpose: "..."
+inputs:
+  required_case_fields: ["company_name", "company_domain"]
+  required_registry_views: ["target_entity"]
+outputs:
+  entities_delta:
+    required: true
+    entity_types_allowed: ["target_company", "manufacturer", "customer"]
+    required_fields_per_entity: ["entity_key", "entity_type", "entity_name"]
+  relations_delta:
+    required: false
+    relation_types_allowed: ["peer_of", "customer_of"]
+  findings:
+    required: true
+    min_items: 1
+  sources:
+    required: true
+    min_items: 1
+validation:
+  hard_fail_if:
+    - "missing required output sections"
+    - "sources missing for consequential claims"
+  soft_fail_allowed:
+    - "n/v returned when evidence is not available"
