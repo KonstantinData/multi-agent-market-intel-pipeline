@@ -16,7 +16,7 @@ from src.validator.contract_validator import (
     validate_ag00_output,
     validate_ag01_output,
     validate_ag10_output,
-    validate_ad11_output,
+    validate_ag11_output,
 )
 
 
