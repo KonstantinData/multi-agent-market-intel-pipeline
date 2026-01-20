@@ -38,7 +38,7 @@ def _dedupe_urls(urls: Sequence[str]) -> List[str]:
     return deduped
 
 
-def _build_primary_sources(domain: str) -> List[str]:
+def _build_primary_sources(domain: str, company_name: str) -> List[Dict[str, str]]:
     base_url = f"https://{domain}"
     urls: List[str] = []
     for path in PRIMARY_PATHS:
@@ -49,20 +49,19 @@ def _build_primary_sources(domain: str) -> List[str]:
     primary = _dedupe_urls(urls)
     if not primary:
         primary = [base_url]
-    return primary
+    publisher = company_name or "Official website"
+    return [{"publisher": publisher, "url": url} for url in primary]
 
 
-def _build_secondary_sources() -> List[str]:
-    return _dedupe_urls([url for _, url in SECONDARY_SOURCES])
+def _build_secondary_sources() -> List[Dict[str, str]]:
+    return [{"publisher": publisher, "url": url} for publisher, url in SECONDARY_SOURCES]
 
 
-def _build_sources(company_name: str, primary: Sequence[str], secondary: Sequence[str]) -> List[Dict[str, str]]:
-    sources: List[Dict[str, str]] = []
-    for url in primary:
-        sources.append({"publisher": company_name or "Official website", "url": url})
-    for publisher, url in SECONDARY_SOURCES:
-        if url in secondary:
-            sources.append({"publisher": publisher, "url": url})
+def _build_sources(
+    primary: Sequence[Dict[str, str]],
+    secondary: Sequence[Dict[str, str]],
+) -> List[Dict[str, str]]:
+    sources = list(primary) + list(secondary)
     return _dedupe_source_entries(sources)
 
 
@@ -95,7 +94,7 @@ class AgentAG01SourceRegistry(BaseAgent):
         if not company_name or not domain or not entity_key:
             return AgentResult(ok=False, output={"error": "missing required meta artifacts"})
 
-        primary_sources = _build_primary_sources(domain)
+        primary_sources = _build_primary_sources(domain, company_name)
         secondary_sources = _build_secondary_sources()
 
         source_registry = {
@@ -118,7 +117,7 @@ class AgentAG01SourceRegistry(BaseAgent):
             }
         ]
 
-        sources = _build_sources(company_name, primary_sources, secondary_sources)
+        sources = _build_sources(primary_sources, secondary_sources)
 
         output: Dict[str, Any] = {
             "step_meta": {
