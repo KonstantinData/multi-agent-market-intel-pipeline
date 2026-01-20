@@ -43,6 +43,7 @@ def main() -> None:
     log_line(log_path, f"PIPELINE START run_id={ctx.run_id}")
 
     case_input = read_case_input(args.case_file)
+    case_input["run_id"] = ctx.run_id
     log_line(log_path, f"Loaded case_file={args.case_file}")
 
     # --- Step: AG-00 ---

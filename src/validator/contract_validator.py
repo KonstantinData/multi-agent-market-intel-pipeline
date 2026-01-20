@@ -69,6 +69,10 @@ def validate_ag00_output(output: Dict[str, Any], contract: Dict[str, Any]) -> Va
     if errors:
         return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
 
+    _validate_step_meta(output, contract, errors)
+    if errors:
+        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
+
     # Required fields in case_normalized
     cn = output.get("case_normalized", {})
     for field in contract["outputs"]["case_normalized_required_fields"]:
@@ -135,6 +139,7 @@ def _is_http_url(url: str) -> bool:
     u = (url or "").strip()
     return u.startswith("http://") or u.startswith("https://")
 
+_ISO_UTC_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 _CLAIM_KEYWORDS = re.compile(
     r"\b("
     r"founded|incorporated|headquartered|headquarters|based in|located in|"
@@ -151,6 +156,60 @@ def _finding_contains_claim(text: str) -> bool:
     if not text:
         return False
     return _CLAIM_KEYWORDS.search(text) is not None
+
+
+def _is_iso_utc(value: str) -> bool:
+    return bool(_ISO_UTC_RE.match(value))
+
+
+def _validate_step_meta(
+    output: Dict[str, Any],
+    contract: Dict[str, Any],
+    errors: List[ValidationIssue],
+) -> None:
+    step_meta = output.get("step_meta")
+    if not isinstance(step_meta, dict):
+        errors.append(
+            ValidationIssue(
+                code=error_codes.MISSING_REQUIRED_FIELDS,
+                message="step_meta must be an object",
+                path="$.step_meta",
+            )
+        )
+        return
+
+    required_fields = contract.get("outputs", {}).get("step_meta_required_fields", [])
+    for field in required_fields:
+        value = step_meta.get(field)
+        if isinstance(value, str):
+            if not value.strip():
+                errors.append(
+                    ValidationIssue(
+                        code=error_codes.MISSING_REQUIRED_FIELDS,
+                        message=f"Missing required step_meta field: {field}",
+                        path=f"$.step_meta.{field}",
+                    )
+                )
+        elif value is None:
+            errors.append(
+                ValidationIssue(
+                    code=error_codes.MISSING_REQUIRED_FIELDS,
+                    message=f"Missing required step_meta field: {field}",
+                    path=f"$.step_meta.{field}",
+                )
+            )
+
+    for field in ("started_at_utc", "finished_at_utc"):
+        value = step_meta.get(field)
+        if isinstance(value, str) and value.strip():
+            if not _is_iso_utc(value):
+                errors.append(
+                    ValidationIssue(
+                        code=error_codes.INVALID_STEP_META_TIMESTAMP,
+                        message=f"step_meta.{field} must be ISO-8601 UTC (YYYY-MM-DDTHH:MM:SSZ)",
+                        path=f"$.step_meta.{field}",
+                    )
+                )
 
 
 def _collect_finding_texts(findings: Any) -> List[str]:
@@ -231,6 +290,10 @@ def validate_ag01_output(output: Dict[str, Any], contract: Dict[str, Any]) -> Va
     if errors:
         return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
 
+    _validate_step_meta(output, contract, errors)
+    if errors:
+        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
+
     source_registry = output.get("source_registry", {})
     for field in contract["outputs"]["source_registry_required_fields"]:
         if field not in source_registry:
@@ -299,6 +362,18 @@ def validate_ag10_output(
                 )
             )
 
+    if errors:
+        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
+
+    _validate_step_meta(output, contract, errors)
+    if errors:
+        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
+
+    _validate_step_meta(output, contract, errors)
+    if errors:
+        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
+
+    _validate_step_meta(output, contract, errors)
     if errors:
         return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
 
