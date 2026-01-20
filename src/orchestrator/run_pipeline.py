@@ -18,7 +18,7 @@ from src.validator.contract_validator import (
     validate_ag10_output,
     validate_ag11_output,
 )
-from src.agents.common.step_meta import utc_now_iso
+from src.agent_common.step_meta import utc_now_iso
 
 
 def read_case_input(case_file: str) -> Dict[str, Any]:

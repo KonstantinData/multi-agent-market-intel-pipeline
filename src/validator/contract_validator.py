@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 
 import yaml
 
-from src.agents.common.text_normalization import is_valid_domain
+from src.agent_common.text_normalization import is_valid_domain
 from src.validator import error_codes
 
 
