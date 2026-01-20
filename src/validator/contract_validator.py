@@ -640,3 +640,147 @@ def validate_ag11_output(output: Dict[str, Any], contract: Dict[str, Any]) -> Va
 
     ok = len(errors) == 0
     return ValidatorResult(ok=ok, step_id=step_id, errors=errors, warnings=warnings)
+
+def validate_ag20_output(
+    output: Dict[str, Any],
+    contract: Dict[str, Any],
+    expected_entity_key: Optional[str] = None,
+    expected_domain: Optional[str] = None,
+) -> ValidatorResult:
+    step_id = contract["step_id"]
+    errors: List[ValidationIssue] = []
+    warnings: List[ValidationIssue] = []
+
+    required_sections = contract["outputs"]["required_sections"]
+    for section in required_sections:
+        if section not in output:
+            errors.append(
+                ValidationIssue(
+                    code=error_codes.MISSING_REQUIRED_SECTIONS,
+                    message=f"Missing required section: {section}",
+                    path=f"$.{section}",
+                )
+            )
+
+    if errors:
+        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
+
+    entities = output.get("entities_delta", [])
+    if not isinstance(entities, list):
+        errors.append(
+            ValidationIssue(
+                code=error_codes.MISSING_REQUIRED_FIELDS,
+                message="entities_delta must be a list",
+                path="$.entities_delta",
+            )
+        )
+        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
+
+    target = None
+    for e in entities:
+        if isinstance(e, dict) and e.get("entity_id") == "TGT-001":
+            target = e
+            break
+
+    if target is None:
+        errors.append(
+            ValidationIssue(
+                code=error_codes.MISSING_TARGET_ENTITY,
+                message="Missing target entity update with entity_id='TGT-001'",
+                path="$.entities_delta",
+            )
+        )
+        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
+
+    for field in contract["outputs"]["target_entity_required_fields"]:
+        if field not in target:
+            errors.append(
+                ValidationIssue(
+                    code=error_codes.MISSING_REQUIRED_FIELDS,
+                    message=f"Missing required field in target entity: {field}",
+                    path=f"$.entities_delta[?(@.entity_id=='TGT-001')].{field}",
+                )
+            )
+
+    if target.get("entity_type") != "target_company":
+        errors.append(
+            ValidationIssue(
+                code=error_codes.MISSING_REQUIRED_FIELDS,
+                message="entity_type must be 'target_company' for TGT-001",
+                path="$.entities_delta[?(@.entity_id=='TGT-001')].entity_type",
+            )
+        )
+
+    if expected_entity_key is not None:
+        actual_key = str(target.get("entity_key", ""))
+        if actual_key != expected_entity_key:
+            errors.append(
+                ValidationIssue(
+                    code=error_codes.INVALID_ENTITY_KEY,
+                    message=f"entity_key must match meta.case_normalized.entity_key ({expected_entity_key})",
+                    path="$.entities_delta[?(@.entity_id=='TGT-001')].entity_key",
+                )
+            )
+
+    if expected_domain is not None:
+        actual_domain = str(target.get("domain", ""))
+        if actual_domain != expected_domain:
+            errors.append(
+                ValidationIssue(
+                    code=error_codes.MISSING_REQUIRED_FIELDS,
+                    message=f"domain must match meta.case_normalized.web_domain_normalized ({expected_domain})",
+                    path="$.entities_delta[?(@.entity_id=='TGT-001')].domain",
+                )
+            )
+
+    size_fields = ["employee_range", "revenue_band", "market_scope_signal"]
+    for field in size_fields:
+        value = target.get(field)
+        if value is None:
+            continue
+        if value != "n/v" and not isinstance(value, str):
+            errors.append(
+                ValidationIssue(
+                    code=error_codes.MISSING_REQUIRED_FIELDS,
+                    message=f"{field} must be a string or 'n/v'",
+                    path=f"$.entities_delta[?(@.entity_id=='TGT-001')].{field}",
+                )
+            )
+
+    has_claim = any(target.get(k) not in (None, "", "n/v") for k in size_fields)
+    sources = output.get("sources", [])
+
+    if has_claim:
+        if not isinstance(sources, list) or len(sources) == 0:
+            errors.append(
+                ValidationIssue(
+                    code=error_codes.MISSING_SOURCES_FOR_CLAIMS,
+                    message="sources must be non-empty when size claims are present",
+                    path="$.sources",
+                )
+            )
+        else:
+            for i, s in enumerate(sources):
+                if not isinstance(s, dict):
+                    errors.append(
+                        ValidationIssue(
+                            code=error_codes.SOURCE_MISSING_REQUIRED_FIELDS,
+                            message="each source must be an object",
+                            path=f"$.sources[{i}]",
+                        )
+                    )
+                    continue
+                publisher = str(s.get("publisher", "")).strip()
+                url = str(s.get("url", "")).strip()
+                accessed = str(s.get("accessed_at_utc", "")).strip()
+                if not publisher or not url or not accessed or not _is_http_url(url):
+                    errors.append(
+                        ValidationIssue(
+                            code=error_codes.SOURCE_MISSING_REQUIRED_FIELDS,
+                            message="source requires publisher, http(s) url, accessed_at_utc",
+                            path=f"$.sources[{i}]",
+                        )
+                    )
+
+    ok = len(errors) == 0
+    return ValidatorResult(ok=ok, step_id=step_id, errors=errors, warnings=warnings)

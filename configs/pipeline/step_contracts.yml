@@ -91,7 +91,7 @@ steps:
         - "missing_sources_for_claims"
         - "source_missing_required_fields"
 
- - step_id: "AG-11"
+  - step_id: "AG-11"
     agent_name: "ag11_locations_sites"
     purpose: "Extract verified locations and operating sites for the target company"
     inputs:
@@ -120,3 +120,34 @@ steps:
         - "source_missing_required_fields"
         - "missing_site_relation"
         - "invalid_site_entity"
+
+  - step_id: "AG-20"
+    agent_name: "ag20_company_size"
+    purpose: "Extract verifiable company size signals for the target company"
+    inputs:
+      required_meta_artifacts:
+        - "case_normalized.json"
+        - "target_entity_stub.json"
+    outputs:
+      required_sections:
+        - "step_meta"
+        - "entities_delta"
+        - "findings"
+        - "sources"
+      target_entity_required_fields:
+        - "entity_id"
+        - "entity_type"
+        - "entity_name"
+        - "domain"
+        - "entity_key"
+        - "employee_range"
+        - "revenue_band"
+        - "market_scope_signal"
+    validation:
+      hard_fail_if:
+        - "missing_required_sections"
+        - "missing_target_entity"
+        - "missing_required_fields"
+        - "invalid_entity_key"
+        - "missing_sources_for_claims"
+        - "source_missing_required_fields"
