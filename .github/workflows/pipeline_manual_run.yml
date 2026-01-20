@@ -1,0 +1,96 @@
+name: Pipeline Manual Run
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "CONFIRM" to start the run (no artifacts are created before this)'
+        required: true
+        default: ""
+      company_name:
+        description: "Target company name"
+        required: true
+        default: ""
+      company_domain:
+        description: "Target company domain (e.g., example.com)"
+        required: true
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  manual-run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Enforce explicit confirmation BEFORE any run folder creation / pipeline invocation.
+      - name: Require explicit confirmation
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event.inputs.confirm }}" != "CONFIRM" ]; then
+            echo 'Confirmation missing (must be exactly "CONFIRM"). Aborting.'
+            exit 1
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Create run_id + case input (inside artifacts)
+        shell: bash
+        env:
+          COMPANY_NAME: ${{ github.event.inputs.company_name }}
+          COMPANY_DOMAIN: ${{ github.event.inputs.company_domain }}
+        run: |
+          set -euo pipefail
+          RUN_ID="RUN-${{ github.run_id }}-${{ github.run_attempt }}"
+          echo "RUN_ID=$RUN_ID" >> "$GITHUB_ENV"
+
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+
+          run_id = os.environ["RUN_ID"]
+          company_name = os.environ["COMPANY_NAME"].strip()
+          company_domain = os.environ["COMPANY_DOMAIN"].strip()
+
+          meta_dir = Path("artifacts") / "runs" / run_id / "meta"
+          meta_dir.mkdir(parents=True, exist_ok=True)
+
+          # Repo code reads `web_domain` (AG00); DoD/spec uses `company_domain`.
+          # Emit both for compatibility.
+          payload = {
+            "company_name": company_name,
+            "web_domain": company_domain,
+            "company_domain": company_domain,
+          }
+          (meta_dir / "case_input.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
+          print(f"Wrote: {meta_dir / 'case_input.json'}")
+          PY
+
+      - name: Run pipeline (AG-00)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python src/orchestrator/run_pipeline.py \
+            --run-id "${RUN_ID}" \
+            --case-file "artifacts/runs/${RUN_ID}/meta/case_input.json"
+
+      - name: Upload run artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: run-${{ env.RUN_ID }}
+          path: artifacts/runs/${{ env.RUN_ID }}
