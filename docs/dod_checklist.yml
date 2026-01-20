@@ -1,0 +1,162 @@
+project: multi-agent-market-intel-pipeline
+definition_of_done:
+
+  repository:
+    structure_integrity:
+      no_folder_renames: true
+      no_agent_id_renames: true
+      no_breaking_interface_changes: true
+      repo_runs_from_clean_env: true
+      single_schema_system_enforced: true
+
+    configuration_ownership:
+      schemas_only_in:
+        - configs/contracts
+        - configs/pipeline
+        - configs/rules
+      validator_only_in: src/validator
+
+  run_execution:
+    run_creation:
+      ui_confirmation_required: true
+      no_artifacts_before_confirmation: true
+      run_id_unique_and_immutable: true
+
+    artifact_layout:
+      required_paths:
+        - artifacts/runs/<run_id>/meta
+        - artifacts/runs/<run_id>/steps
+        - artifacts/runs/<run_id>/logs
+        - artifacts/runs/<run_id>/exports
+      no_writes_outside_artifacts: true
+
+  ag00_foundation:
+    required_artifacts:
+      - meta/case_normalized.json
+      - meta/target_entity_stub.json
+
+    normalization_rules:
+      company_name_canonical_non_empty: true
+      web_domain_normalized_valid: true
+      entity_key_equals_domain_prefixed: true
+
+    gatekeeper:
+      status_must_be_pass: true
+      warnings_recorded_if_present: true
+
+  agent_steps:
+    output_artifacts_required:
+      - steps/<STEP_ID>/output.json
+      - steps/<STEP_ID>/validator.json
+
+    output_structure:
+      required_fields:
+        - step_id
+        - run_id
+        - timestamp_utc
+        - findings
+        - sources
+      conditional_fields:
+        entities_delta: optional
+        relations_delta: optional
+        report_section: optional
+
+    evidence_rules:
+      claims_require_sources: true
+      source_fields_required:
+        - publisher
+        - url
+        - accessed_at_utc
+      unverifiable_data_must_be_nv: true
+
+  gatekeeper_validation:
+    hard_fail_conditions:
+      - missing_required_fields
+      - invalid_entity_ids
+      - duplicate_domains_across_entities
+      - broken_cross_references
+      - missing_sources_for_claims
+      - schema_violation
+
+    warnings_allowed_only_if:
+      explicitly_logged: true
+      no_downstream_structural_impact: true
+
+  orchestration:
+    dag_execution_enforced: true
+    no_step_after_fail: true
+    retry_policy_bounded: true
+    orchestrator_does_not_modify_outputs: true
+    orchestrator_decision_basis:
+      - validator_status_only
+
+  registry_and_identity:
+    registry_exists: meta/entity_registry.json
+
+    id_policy:
+      target_id: TGT-001
+      manufacturer_prefix: MFR
+      customer_prefix: CUS
+
+    dedupe_rules:
+      primary_key: normalized_domain
+      secondary_key: canonical_name_if_domain_nv
+      no_duplicate_domains: true
+      multi_role_entities_single_id: true
+
+  cross_reference_integrity:
+    crossref_graph_exists: meta/crossref_graph.json
+    all_references_resolvable: true
+    no_dangling_ids: true
+
+  exports:
+    mandatory_exports:
+      - exports/report.md
+      - exports/entities.json
+
+    export_rules:
+      derived_only_from_validated_artifacts: true
+      no_additional_inference: true
+      all_ids_resolve_to_registry: true
+
+  ui:
+    intake_guardrails:
+      invalid_domain_blocks_start: true
+      normalization_preview_present: true
+      explicit_confirmation_required: true
+
+    run_controls:
+      step_status_visible: true
+      intake_correction_supported: true
+      rerun_supported: true
+      run_archiving_preserves_audit: true
+
+  testing:
+    pytest_passes: true
+
+    unit_tests_required_for:
+      - normalization
+      - validator_logic
+      - dedupe_and_id_policy
+
+    integration_tests:
+      pipeline_smoke_test_produces_exports: true
+
+  determinism_and_audit:
+    deterministic_structure_and_ids: true
+    nondeterminism_confined_to_content: true
+    traceability:
+      output_to_step: true
+      output_to_source: true
+      output_to_run_id: true
+    no_silent_overwrites: true
+
+  documentation:
+    architecture_spec_present: true
+    agent_deliverables_documented: true
+    known_limitations_documented: true
+
+  final_acceptance:
+    no_p0_violations: true
+    no_validator_bypasses: true
+    full_end_to_end_run_auditable: true
