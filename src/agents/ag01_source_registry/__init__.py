@@ -1,1 +1,1 @@
-"""Agent package for AG-01 source registry."""
+from .agent import AgentAG01SourceRegistry
