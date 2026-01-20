@@ -5,6 +5,7 @@ import os
 import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
@@ -183,8 +184,72 @@ def _extract_legal_name_and_form(text: str) -> Tuple[str, str]:
     return candidate, legal_form
 
 
+_DOTENV_LOADED = False
+
+
+def _load_dotenv_if_present() -> None:
+    """Load .env into os.environ if present (no dependencies, no secret logging).
+
+    Behavior:
+    - Does not overwrite already-defined environment variables.
+    - Supports lines: KEY=value, export KEY=value, quoted values, comments.
+    - Deterministic: silent no-op on parse errors; never prints secrets.
+    """
+    global _DOTENV_LOADED
+    if _DOTENV_LOADED:
+        return
+    _DOTENV_LOADED = True
+
+    candidates: List[Path] = []
+    # CWD first (typical when running from repo root)
+    candidates.append(Path.cwd() / ".env")
+
+    # Walk upwards from this file location, capped
+    here = Path(__file__).resolve()
+    for i, parent in enumerate(here.parents):
+        if i > 8:
+            break
+        candidates.append(parent / ".env")
+
+    dotenv_path = next((p for p in candidates if p.is_file()), None)
+    if not dotenv_path:
+        return
+
+    try:
+        for raw in dotenv_path.read_text(encoding="utf-8", errors="ignore").splitlines():
+            line = raw.strip()
+            if not line or line.startswith("#"):
+                continue
+            if line.lower().startswith("export "):
+                line = line[7:].strip()
+            if "=" not in line:
+                continue
+
+            k, v = line.split("=", 1)
+            k = k.strip()
+            v = v.strip()
+
+            # strip surrounding quotes
+            if len(v) >= 2 and ((v[0] == v[-1] == '"') or (v[0] == v[-1] == "'")):
+                v = v[1:-1]
+
+            if k and k not in os.environ:
+                os.environ[k] = v
+    except Exception:
+        return
+
+
 def _openai_api_key() -> str:
-    """Primary key location is OPEN-AI-KEY (as required)."""
+    """Primary key location is OPEN-AI-KEY (as required).
+
+    Note: .env is not auto-loaded by Python. We load it here deterministically
+    if the key is not already present in os.environ.
+    """
+    key = os.getenv("OPEN-AI-KEY", "").strip() or os.getenv("OPENAI_API_KEY", "").strip()
+    if key:
+        return key
+
+    _load_dotenv_if_present()
     return os.getenv("OPEN-AI-KEY", "").strip() or os.getenv("OPENAI_API_KEY", "").strip()
 
 
@@ -216,25 +281,21 @@ def _collect_evidence_lines(pages: List[PageEvidence], max_lines: int = 180) -> 
 
     for ev in pages:
         lines = [(_to_ascii(l).strip()) for l in ev.text.split("\n")]
-        # Keep non-empty lines only
         lines = [l for l in lines if l]
         if not lines:
             continue
 
-        # Determine candidate indices (keyword hits)
         hit_idxs: List[int] = []
         for i, l in enumerate(lines):
             if keyword_re.search(l):
                 hit_idxs.append(i)
 
-        # Include windows around hits, deterministically in ascending order
         picked: List[int] = []
         for i in hit_idxs:
             for j in (i - 1, i, i + 1):
                 if 0 <= j < len(lines) and j not in picked:
                     picked.append(j)
 
-        # Fallback: include top-of-page context if no hits
         if not picked:
             picked = list(range(min(25, len(lines))))
 
@@ -252,7 +313,7 @@ def _collect_evidence_lines(pages: List[PageEvidence], max_lines: int = 180) -> 
             break
 
     evidence_text = "\n\n".join(out).strip()
-    # Deterministic URL order + dedupe
+
     seen = set()
     deduped_urls: List[str] = []
     for u in urls:
@@ -325,7 +386,6 @@ def _sanitize_llm_outputs(parsed: Dict[str, Any], evidence_text: str) -> Tuple[s
     raw_founding_year = _to_ascii(str(parsed.get("founding_year", "n/v"))).strip() or "n/v"
     raw_registration = _to_ascii(str(parsed.get("registration_signals", "n/v"))).strip() or "n/v"
 
-    # Evidence containment checks (lenient normalization)
     if raw_legal_name != "n/v":
         if _normalize_for_contains(raw_legal_name) not in ev_norm:
             raw_legal_name = "n/v"
@@ -334,7 +394,6 @@ def _sanitize_llm_outputs(parsed: Dict[str, Any], evidence_text: str) -> Tuple[s
         if _normalize_for_contains(raw_legal_form) not in ev_norm:
             raw_legal_form = "n/v"
 
-    # Founding year must be a 4-digit year present in evidence
     if raw_founding_year != "n/v":
         m = re.search(r"\b(18\d{2}|19\d{2}|20\d{2})\b", raw_founding_year)
         year = m.group(1) if m else None
@@ -343,7 +402,6 @@ def _sanitize_llm_outputs(parsed: Dict[str, Any], evidence_text: str) -> Tuple[s
         else:
             raw_founding_year = year
 
-    # Registration signals must contain known markers and be evidence-contained
     if raw_registration != "n/v":
         markers = (
             "handelsregister",
@@ -357,7 +415,6 @@ def _sanitize_llm_outputs(parsed: Dict[str, Any], evidence_text: str) -> Tuple[s
         if not any(marker in lowered for marker in markers):
             raw_registration = "n/v"
         else:
-            # If digits appear (possible register numbers), require the exact digit-bearing token to exist in evidence.
             digit_tokens = re.findall(r"\b(?:hrb|hra)?\s*\d{2,}\b", lowered)
             for tok in digit_tokens:
                 tok_norm = _normalize_for_contains(tok)
@@ -369,7 +426,6 @@ def _sanitize_llm_outputs(parsed: Dict[str, Any], evidence_text: str) -> Tuple[s
             if _normalize_for_contains(raw_registration) not in ev_norm:
                 raw_registration = "n/v"
 
-    # Length guards
     if raw_legal_name != "n/v" and len(raw_legal_name) > 160:
         raw_legal_name = raw_legal_name[:160]
     if raw_registration != "n/v" and len(raw_registration) > 400:
@@ -407,7 +463,6 @@ class AgentAG10IdentityLegal(BaseAgent):
         if not company_name or not domain or not entity_key:
             return AgentResult(ok=False, output={"error": "missing required meta artifacts"})
 
-        # LLM access is mandatory for AG-10
         api_key = _openai_api_key()
         if not api_key:
             return AgentResult(
@@ -434,7 +489,6 @@ class AgentAG10IdentityLegal(BaseAgent):
         try:
             parsed = _openai_extract_legal_identity(evidence_text=evidence_text, api_key=api_key)
         except Exception as e:
-            # Do not leak secrets; keep error short + deterministic
             return AgentResult(ok=False, output={"error": f"openai_extraction_failed: {type(e).__name__}"})
 
         legal_name, legal_form, founding_year_s, registration_signals = _sanitize_llm_outputs(
@@ -442,8 +496,6 @@ class AgentAG10IdentityLegal(BaseAgent):
             evidence_text=evidence_text,
         )
 
-        # Deterministic fallback (still evidence-based) for gaps:
-        # We may use regex extractors, but the LLM call remains mandatory.
         if pages and (legal_name == "n/v" or legal_form == "n/v"):
             for ev in pages:
                 ln, lf = _extract_legal_name_and_form(ev.text)
@@ -477,7 +529,6 @@ class AgentAG10IdentityLegal(BaseAgent):
         else:
             founding_year = "n/v"
 
-        # Sources: required if any legal field is present (validator rule).
         legal_fields = [legal_name, legal_form, founding_year, registration_signals]
         has_claim = any(v not in (None, "", "n/v") for v in legal_fields)
 
