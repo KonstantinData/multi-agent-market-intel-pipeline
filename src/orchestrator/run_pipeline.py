@@ -9,7 +9,7 @@ from src.agents.ag00_intake_normalization.agent import AgentAG00IntakeNormalizat
 from src.agents.ag01_source_registry.agent import AgentAG01SourceRegistry
 from src.agents.ag10_identity_legal.agent import AgentAG10IdentityLegal
 from src.agents.ag11_locations_sites.agent import AgentAG11LocationsSites
-from src.orchestrator.logger import format_relative_path, log_line
+from src.orchestrator.logger import log_line
 from src.orchestrator.run_context import RunContext
 from src.validator.contract_validator import (
     load_step_contracts,
@@ -113,11 +113,7 @@ def main() -> None:
     case_input = read_case_input(args.case_file)
     case_input["run_id"] = ctx.run_id
     case_file_path = Path(args.case_file)
-    case_file_log_path = format_relative_path(ctx.run_root, case_file_path)
-    log_line(
-        log_path,
-        f"Loaded case_file run_id={ctx.run_id} relative_path={case_file_log_path}",
-    )
+    log_line(log_path, f"Loaded case_file run_id={ctx.run_id} file={case_file_path.name}")
 
     # --- Step: AG-00 ---
     step_id = "AG-00"
@@ -136,11 +132,7 @@ def main() -> None:
         raise SystemExit(2)
 
     write_json(output_path, agent_result.output)
-    output_log_path = format_relative_path(ctx.run_root, output_path)
-    log_line(
-        log_path,
-        f"AG-00 output written run_id={ctx.run_id} relative_path={output_log_path}",
-    )
+    log_line(log_path, f"AG-00 output written run_id={ctx.run_id}")
 
     # --- Gatekeeper validation ---
     step_contracts = load_step_contracts(str(repo_root / "configs/pipeline/step_contracts.yml"))
@@ -188,11 +180,7 @@ def main() -> None:
 
     output_path = step_dir / "output.json"
     write_json(output_path, agent01_result.output)
-    output_log_path = format_relative_path(ctx.run_root, output_path)
-    log_line(
-        log_path,
-        f"AG-01 output written run_id={ctx.run_id} relative_path={output_log_path}",
-    )
+    log_line(log_path, f"AG-01 output written run_id={ctx.run_id}")
 
     contract01 = step_contracts[step_id]
     vr01 = validate_ag01_output(agent01_result.output, contract01)
@@ -234,11 +222,7 @@ def main() -> None:
 
     output_path = step_dir / "output.json"
     write_json(output_path, agent10_result.output)
-    output_log_path = format_relative_path(ctx.run_root, output_path)
-    log_line(
-        log_path,
-        f"AG-10 output written run_id={ctx.run_id} relative_path={output_log_path}",
-    )
+    log_line(log_path, f"AG-10 output written run_id={ctx.run_id}")
 
     contract10 = step_contracts[step_id]
     vr10 = validate_ag10_output(
@@ -285,11 +269,7 @@ def main() -> None:
 
     output_path = step_dir / "output.json"
     write_json(output_path, agent11_result.output)
-    output_log_path = format_relative_path(ctx.run_root, output_path)
-    log_line(
-        log_path,
-        f"AG-11 output written run_id={ctx.run_id} relative_path={output_log_path}",
-    )
+    log_line(log_path, f"AG-11 output written run_id={ctx.run_id}")
 
     contract11 = step_contracts[step_id]
     vr11 = validate_ag11_output(agent11_result.output, contract11)
