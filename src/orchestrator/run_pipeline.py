@@ -6,12 +6,14 @@ from pathlib import Path
 from typing import Any, Dict
 
 from src.agents.ag00_intake_normalization.agent import AgentAG00IntakeNormalization
+from src.agents.ag01_source_registry.agent import AgentAG01SourceRegistry
 from src.agents.ag10_identity_legal.agent import AgentAG10IdentityLegal
 from src.orchestrator.logger import log_line
 from src.orchestrator.run_context import RunContext
 from src.validator.contract_validator import (
     load_step_contracts,
     validate_ag00_output,
+    validate_ag01_output,
     validate_ag10_output,
 )
 
@@ -83,6 +85,49 @@ def main() -> None:
     write_json(ctx.meta_dir / "case_normalized.json", agent_result.output["case_normalized"])
     write_json(ctx.meta_dir / "target_entity_stub.json", agent_result.output["target_entity_stub"])
 
+     # --- Step: AG-01 ---
+    step_id = "AG-01"
+    step_dir = ctx.steps_dir / step_id
+    step_dir.mkdir(parents=True, exist_ok=True)
+
+    agent01 = AgentAG01SourceRegistry()
+    log_line(log_path, "Running AG-01 agent")
+
+    case_normalized = agent_result.output["case_normalized"]
+    target_stub = agent_result.output["target_entity_stub"]
+
+    agent01_result = agent01.run(
+        case_input=case_input,
+        meta_case_normalized=case_normalized,
+        meta_target_entity_stub=target_stub,
+    )
+
+    if not agent01_result.ok:
+        write_json(step_dir / "agent_error.json", agent01_result.output)
+        log_line(log_path, "AG-01 agent self-validation FAILED")
+        raise SystemExit(2)
+
+    output_path = step_dir / "output.json"
+    write_json(output_path, agent01_result.output)
+    log_line(log_path, f"AG-01 output written: {output_path}")
+
+    contract01 = step_contracts[step_id]
+    vr01 = validate_ag01_output(agent01_result.output, contract01)
+
+    validator_payload01 = {
+        "step_id": vr01.step_id,
+        "ok": vr01.ok,
+        "errors": [{"code": e.code, "message": e.message, "path": e.path} for e in vr01.errors],
+        "warnings": [{"code": w.code, "message": w.message, "path": w.path} for w in vr01.warnings],
+    }
+
+    write_json(step_dir / "validator.json", validator_payload01)
+    log_line(log_path, f"AG-01 gatekeeper ok={vr01.ok}")
+
+    if not vr01.ok:
+        log_line(log_path, "PIPELINE STOP (AG-01 contract validation failed)")
+        raise SystemExit(3)
+
     # --- Step: AG-10 ---
     step_id = "AG-10"
     step_dir = ctx.steps_dir / step_id
@@ -131,7 +176,7 @@ def main() -> None:
         log_line(log_path, "PIPELINE STOP (AG-10 contract validation failed)")
         raise SystemExit(3)
 
-    log_line(log_path, "PIPELINE END (AG-00, AG-10 completed successfully)")
+    log_line(log_path, "PIPELINE END (AG-00, AG-01, AG-10 completed successfully)")
 
 
 if __name__ == "__main__":
