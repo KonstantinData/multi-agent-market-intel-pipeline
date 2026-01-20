@@ -7,4 +7,10 @@ INVALID_DOMAIN_FORMAT = "invalid_domain_format"
 INVALID_ENTITY_KEY = "invalid_entity_key"
 
 LOW_QUALITY_COMPANY_NAME = "low_quality_company_name"
+MISSING_TARGET_ENTITY = "missing_target_entity"
+INVALID_FOUNDING_YEAR = "invalid_founding_year"
+MISSING_SOURCES_FOR_CLAIMS = "missing_sources_for_claims"
+SOURCE_MISSING_REQUIRED_FIELDS = "source_missing_required_fields"
+RELATIONS_NOT_EMPTY = "relations_not_empty"
+
 
