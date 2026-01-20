@@ -257,11 +257,18 @@ def _validate_source_list(
             continue
         publisher = str(entry.get("publisher", "")).strip()
         url = str(entry.get("url", "")).strip()
-        if not publisher or not url or not _is_http_url(url):
+        accessed = str(entry.get("accessed_at_utc", "")).strip()
+        if (
+            not publisher
+            or not url
+            or not accessed
+            or not _is_http_url(url)
+            or not _is_iso_utc(accessed)
+        ):
             errors.append(
                 ValidationIssue(
                     code=error_codes.SOURCE_MISSING_REQUIRED_FIELDS,
-                    message="source requires publisher and http(s) url",
+                    message="source requires publisher, http(s) url, accessed_at_utc",
                     path=f"{path_prefix}[{i}]",
                 )
             )

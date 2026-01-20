@@ -22,6 +22,7 @@ def _base_ag01_output() -> dict:
                 {
                     "publisher": "Example Inc.",
                     "url": "https://example.com/about",
+                    "accessed_at_utc": "2024-01-01T00:00:00Z",
                     "type": "company_website",
                 }
             ],
@@ -29,6 +30,7 @@ def _base_ag01_output() -> dict:
                 {
                     "publisher": "Registry of Companies",
                     "url": "https://registry.example.com/example-inc",
+                    "accessed_at_utc": "2024-01-01T00:00:00Z",
                     "type": "registry",
                 }
             ],
@@ -68,7 +70,20 @@ def test_ag01_gatekeeper_fails_empty_primary_sources() -> None:
 def test_ag01_gatekeeper_fails_missing_publisher_or_url() -> None:
     contract = load_step_contracts("configs/pipeline/step_contracts.yml")["AG-01"]
     output = _base_ag01_output()
-    output["source_registry"]["primary_sources"] = [{"publisher": "", "url": "https://example.com/about"}]
+    output["source_registry"]["primary_sources"] = [
+        {"publisher": "", "url": "https://example.com/about", "accessed_at_utc": "2024-01-01T00:00:00Z"}
+    ]
+
+    vr = validate_ag01_output(output, contract)
+
+    assert vr.ok is False
+    assert len(vr.errors) >= 1
+
+
+def test_ag01_gatekeeper_fails_missing_accessed_at_utc() -> None:
+    contract = load_step_contracts("configs/pipeline/step_contracts.yml")["AG-01"]
+    output = _base_ag01_output()
+    output["source_registry"]["primary_sources"] = [{"publisher": "Example Inc.", "url": "https://example.com/about"}]
 
     vr = validate_ag01_output(output, contract)
 

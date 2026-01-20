@@ -39,7 +39,11 @@ def _dedupe_urls(urls: Sequence[str]) -> List[str]:
     return deduped
 
 
-def _build_primary_sources(domain: str, company_name: str) -> List[Dict[str, str]]:
+def _build_primary_sources(
+    domain: str,
+    company_name: str,
+    accessed_at_utc: str,
+) -> List[Dict[str, str]]:
     base_url = f"https://{domain}"
     urls: List[str] = []
     for path in PRIMARY_PATHS:
@@ -51,11 +55,17 @@ def _build_primary_sources(domain: str, company_name: str) -> List[Dict[str, str
     if not primary:
         primary = [base_url]
     publisher = company_name or "Official website"
-    return [{"publisher": publisher, "url": url} for url in primary]
+    return [
+        {"publisher": publisher, "url": url, "accessed_at_utc": accessed_at_utc}
+        for url in primary
+    ]
 
 
-def _build_secondary_sources() -> List[Dict[str, str]]:
-    return [{"publisher": publisher, "url": url} for publisher, url in SECONDARY_SOURCES]
+def _build_secondary_sources(accessed_at_utc: str) -> List[Dict[str, str]]:
+    return [
+        {"publisher": publisher, "url": url, "accessed_at_utc": accessed_at_utc}
+        for publisher, url in SECONDARY_SOURCES
+    ]
 
 
 def _build_sources(
@@ -96,8 +106,9 @@ class AgentAG01SourceRegistry(BaseAgent):
         if not company_name or not domain or not entity_key:
             return AgentResult(ok=False, output={"error": "missing required meta artifacts"})
 
-        primary_sources = _build_primary_sources(domain, company_name)
-        secondary_sources = _build_secondary_sources()
+        accessed_at_utc = utc_now_iso()
+        primary_sources = _build_primary_sources(domain, company_name, accessed_at_utc)
+        secondary_sources = _build_secondary_sources(accessed_at_utc)
 
         source_registry = {
             "primary_sources": primary_sources,

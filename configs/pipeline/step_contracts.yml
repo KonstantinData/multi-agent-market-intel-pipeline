@@ -69,6 +69,7 @@ steps:
         source_required_fields:
           - "publisher"
           - "url"
+          - "accessed_at_utc"
         findings_restrict_to_source_identification: true
 
   - step_id: "AG-10"
