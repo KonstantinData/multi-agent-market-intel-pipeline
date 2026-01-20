@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
@@ -16,10 +15,6 @@ from src.agents.common.step_meta import build_step_meta, utc_now_iso
 class PageEvidence:
     url: str
     text: str
-
-
-def _utc_now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 def _to_ascii(text: str) -> str:
@@ -212,7 +207,7 @@ class AgentAG11LocationsSites(BaseAgent):
         primary_paths = list(PRIMARY_PATHS)
         combined_paths = _dedupe_paths(primary_paths + candidate_paths)
 
-        accessed_at = _utc_now_iso()
+        accessed_at = utc_now_iso()
         search_attempts = _dedupe_search_attempts(
             [
                 {
