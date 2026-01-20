@@ -29,3 +29,36 @@ steps:
         - "missing_required_fields"
         - "invalid_domain_format"
         - "invalid_entity_key"
+
+  - step_id: "AG-10"
+    agent_name: "ag10_identity_legal"
+    purpose: "Extract verifiable legal identity signals for the target company"
+    inputs:
+      required_meta_artifacts:
+        - "case_normalized.json"
+        - "target_entity_stub.json"
+    outputs:
+      required_sections:
+        - "step_meta"
+        - "entities_delta"
+        - "relations_delta"
+        - "findings"
+        - "sources"
+      target_entity_required_fields:
+        - "entity_id"
+        - "entity_type"
+        - "entity_name"
+        - "domain"
+        - "entity_key"
+        - "legal_name"
+        - "legal_form"
+        - "founding_year"
+        - "registration_signals"
+    validation:
+      hard_fail_if:
+        - "missing_required_sections"
+        - "missing_target_entity"
+        - "invalid_entity_key"
+        - "invalid_founding_year"
+        - "missing_sources_for_claims"
+        - "source_missing_required_fields"

@@ -1,3 +1,7 @@
 dag:
   - step_id: "AG-00"
     depends_on: []
+
+  - step_id: "AG-10"
+    depends_on:
+      - "AG-00"
