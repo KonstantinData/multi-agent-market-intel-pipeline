@@ -73,6 +73,7 @@ Each agent step (AG-10 onward) is **DONE** only if:
 
 * `steps/<STEP_ID>/output.json` exists
 * `steps/<STEP_ID>/validator.json` exists
+* `validator.json` includes `run_id`, `pipeline_version`, and `validated_at_utc` (UTC ISO-8601)
 
 ### 4.2 Output Structure
 
