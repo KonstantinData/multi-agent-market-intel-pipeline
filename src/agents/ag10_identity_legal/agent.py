@@ -447,6 +447,26 @@ def _dedupe_sources(sources: List[Dict[str, str]]) -> List[Dict[str, str]]:
     return deduped
 
 
+def _build_field_sources(
+    legal_name: Any,
+    legal_form: Any,
+    founding_year: Any,
+    registration_signals: Any,
+    evidence_urls: List[str],
+) -> Dict[str, List[Dict[str, str]]]:
+    def _sources_for(value: Any) -> List[Dict[str, str]]:
+        if value in (None, "", "n/v"):
+            return []
+        return [{"url": url} for url in evidence_urls if url]
+
+    return {
+        "legal_name": _sources_for(legal_name),
+        "legal_form": _sources_for(legal_form),
+        "founding_year": _sources_for(founding_year),
+        "registration_signals": _sources_for(registration_signals),
+    }
+
+
 class AgentAG10IdentityLegal(BaseAgent):
     step_id = "AG-10"
     agent_name = "ag10_identity_legal"
@@ -535,6 +555,8 @@ class AgentAG10IdentityLegal(BaseAgent):
         has_claim = any(v not in (None, "", "n/v") for v in legal_fields)
 
         accessed_at = _utc_now_iso()
+        if has_claim and not evidence_urls:
+            evidence_urls = [f"https://{domain}/"]
         used_sources: List[Dict[str, str]] = []
         if has_claim:
             for url in evidence_urls:
@@ -557,6 +579,13 @@ class AgentAG10IdentityLegal(BaseAgent):
             "founding_year": founding_year,
             "registration_signals": registration_signals,
         }
+        field_sources = _build_field_sources(
+            legal_name=legal_name,
+            legal_form=legal_form,
+            founding_year=founding_year,
+            registration_signals=registration_signals,
+            evidence_urls=evidence_urls,
+        )
 
         notes: List[str] = []
         if not has_claim:
@@ -583,6 +612,7 @@ class AgentAG10IdentityLegal(BaseAgent):
                 }
             ],
             "sources": _dedupe_sources(used_sources),
+            "field_sources": field_sources,
         }
 
         return AgentResult(ok=True, output=output)
