@@ -166,6 +166,17 @@ def _is_iso_utc(value: str) -> bool:
     return bool(_ISO_UTC_RE.match(value))
 
 
+def _findings_signal_no_evidence(texts: List[str]) -> bool:
+    if not texts:
+        return False
+    combined = " ".join(texts).lower()
+    return (
+        "no evidence" in combined
+        or "no verifiable" in combined
+        or "n/v" in combined
+    )
+
+
 def _validate_step_meta(
     output: Dict[str, Any],
     contract: Dict[str, Any],
@@ -286,6 +297,43 @@ def _validate_source_list(
                 ValidationIssue(
                     code=error_codes.SOURCE_MISSING_REQUIRED_FIELDS,
                     message="source requires publisher, http(s) url, accessed_at_utc",
+                    path=f"{path_prefix}[{i}]",
+                )
+            )
+
+
+def _validate_search_attempts(
+    attempts: Any,
+    path_prefix: str,
+    errors: List[ValidationIssue],
+) -> None:
+    if not isinstance(attempts, list):
+        errors.append(
+            ValidationIssue(
+                code=error_codes.MISSING_REQUIRED_FIELDS,
+                message=f"{path_prefix} must be a list",
+                path=path_prefix,
+            )
+        )
+        return
+
+    for i, entry in enumerate(attempts):
+        if not isinstance(entry, dict):
+            errors.append(
+                ValidationIssue(
+                    code=error_codes.MISSING_REQUIRED_FIELDS,
+                    message="search_attempt entries must be objects with url and accessed_at_utc",
+                    path=f"{path_prefix}[{i}]",
+                )
+            )
+            continue
+        url = str(entry.get("url", "")).strip()
+        accessed = str(entry.get("accessed_at_utc", "")).strip()
+        if not url or not accessed or not _is_http_url(url) or not _is_iso_utc(accessed):
+            errors.append(
+                ValidationIssue(
+                    code=error_codes.MISSING_REQUIRED_FIELDS,
+                    message="search_attempt requires http(s) url and accessed_at_utc",
                     path=f"{path_prefix}[{i}]",
                 )
             )
@@ -795,6 +843,23 @@ def validate_ag11_output(output: Dict[str, Any], contract: Dict[str, Any]) -> Va
                             path=f"$.sources[{i}]",
                         )
                     )
+
+    search_attempts = output.get("search_attempts")
+    if search_attempts is not None:
+        _validate_search_attempts(search_attempts, "$.search_attempts", errors)
+
+    finding_texts = _collect_finding_texts(output.get("findings"))
+    if _findings_signal_no_evidence(finding_texts):
+        has_sources = isinstance(sources, list) and len(sources) > 0
+        has_attempts = isinstance(search_attempts, list) and len(search_attempts) > 0
+        if not has_sources and not has_attempts:
+            errors.append(
+                ValidationIssue(
+                    code=error_codes.MISSING_REQUIRED_FIELDS,
+                    message="findings report no evidence; include sources or search_attempts",
+                    path="$.sources",
+                )
+            )
 
     ok = len(errors) == 0
     return ValidatorResult(ok=ok, step_id=step_id, errors=errors, warnings=warnings)
