@@ -30,6 +30,33 @@ steps:
         - "invalid_domain_format"
         - "invalid_entity_key"
 
+  - step_id: "AG-01"
+    agent_name: "ag01_source_registry"
+    purpose: "Assemble the source registry and document source identification only"
+    outputs:
+      required_sections:
+        - "step_meta"
+        - "source_registry"
+        - "findings"
+        - "sources"
+      source_registry_required_fields:
+        - "primary_sources"
+        - "secondary_sources"
+        - "source_scope_notes"
+    validation:
+      hard_fail_if:
+        - "missing_required_sections"
+        - "missing_required_fields"
+        - "missing_primary_sources"
+        - "source_missing_required_fields"
+        - "claims_without_sources"
+      gatekeeper_rules:
+        primary_sources_non_empty: true
+        source_required_fields:
+          - "publisher"
+          - "url"
+        findings_restrict_to_source_identification: true
+
   - step_id: "AG-10"
     agent_name: "ag10_identity_legal"
     purpose: "Extract verifiable legal identity signals for the target company"
