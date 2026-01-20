@@ -738,7 +738,28 @@ def validate_ag11_output(output: Dict[str, Any], contract: Dict[str, Any]) -> Va
                 )
             )
             continue
-        if entity.get("entity_type") != "site":
+        entity_type = entity.get("entity_type")
+        if entity_type == "target_company":
+            required_fields = ["entity_id", "entity_type", "entity_name", "domain", "entity_key"]
+            for field in required_fields:
+                if field not in entity:
+                    errors.append(
+                        ValidationIssue(
+                            code=error_codes.MISSING_REQUIRED_FIELDS,
+                            message=f"Missing required field in target entity: {field}",
+                            path=f"$.entities_delta[{i}].{field}",
+                        )
+                    )
+            if entity.get("entity_id") != "TGT-001":
+                errors.append(
+                    ValidationIssue(
+                        code=error_codes.MISSING_TARGET_ENTITY,
+                        message="target entity updates must reference entity_id='TGT-001'",
+                        path=f"$.entities_delta[{i}].entity_id",
+                    )
+                )
+            continue
+        if entity_type != "site":
             errors.append(
                 ValidationIssue(
                     code=error_codes.INVALID_SITE_ENTITY,

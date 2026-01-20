@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
 
+from src.agents.ag01_source_registry.agent import PRIMARY_PATHS
 from src.agents.common.base_agent import AgentResult, BaseAgent
 from src.agents.common.step_meta import build_step_meta, utc_now_iso
 
@@ -131,6 +132,52 @@ def _dedupe_sites(sites: List[Dict[str, str]]) -> List[Dict[str, str]]:
     return deduped
 
 
+def _dedupe_paths(paths: List[str]) -> List[str]:
+    seen = set()
+    deduped: List[str] = []
+    for path in paths:
+        key = path.strip()
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(path)
+    return deduped
+
+
+def _is_blank(value: Any) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, str) and value.strip() == "":
+        return True
+    return False
+
+
+def _select_best_site_location(sites: List[Dict[str, str]]) -> Tuple[str, str]:
+    for site in sites:
+        if site.get("site_type") != "hq":
+            continue
+        city = site.get("city") or "n/v"
+        country = site.get("country_region") or "n/v"
+        if city not in (None, "", "n/v") or country not in (None, "", "n/v"):
+            return city, country
+    for site in sites:
+        city = site.get("city") or "n/v"
+        country = site.get("country_region") or "n/v"
+        if city not in (None, "", "n/v") or country not in (None, "", "n/v"):
+            return city, country
+    return "n/v", "n/v"
+
+
+def _extract_postal_code(pages: List[PageEvidence]) -> str:
+    pattern = re.compile(r"\b\d{4,6}\b")
+    for ev in pages:
+        for line in ev.text.split("\n"):
+            match = pattern.search(line)
+            if match:
+                return match.group(0)
+    return "n/v"
+
+
 class AgentAG11LocationsSites(BaseAgent):
     step_id = "AG-11"
     agent_name = "ag11_locations_sites"
@@ -162,6 +209,9 @@ class AgentAG11LocationsSites(BaseAgent):
             "/warehouses",
         ]
 
+        primary_paths = list(PRIMARY_PATHS)
+        combined_paths = _dedupe_paths(primary_paths + candidate_paths)
+
         accessed_at = _utc_now_iso()
         search_attempts = _dedupe_search_attempts(
             [
@@ -169,11 +219,11 @@ class AgentAG11LocationsSites(BaseAgent):
                     "url": f"https://{domain}{path}",
                     "accessed_at_utc": accessed_at,
                 }
-                for path in candidate_paths
+                for path in combined_paths
             ]
         )
 
-        pages = _fetch_pages(domain=domain, paths=candidate_paths)
+        pages = _fetch_pages(domain=domain, paths=combined_paths)
 
         sites: List[Dict[str, str]] = []
         used_sources: List[Dict[str, str]] = []
@@ -220,6 +270,36 @@ class AgentAG11LocationsSites(BaseAgent):
                 }
             )
 
+        entities_delta: List[Dict[str, Any]] = list(sites)
+        missing_fields: List[str] = [
+            field
+            for field in ("city", "postal_code", "country")
+            if _is_blank(case_input.get(field))
+        ]
+        if missing_fields:
+            inferred_city, inferred_country = _select_best_site_location(sites)
+            inferred_postal = _extract_postal_code(pages)
+            target_update: Dict[str, Any] = {
+                "entity_id": "TGT-001",
+                "entity_type": "target_company",
+                "entity_name": company_name,
+                "domain": domain,
+                "entity_key": entity_key,
+            }
+            if "city" in missing_fields:
+                target_update["city"] = (
+                    _to_ascii(inferred_city) if inferred_city not in (None, "", "n/v") else "n/v"
+                )
+            if "postal_code" in missing_fields:
+                target_update["postal_code"] = (
+                    _to_ascii(inferred_postal) if inferred_postal not in (None, "", "n/v") else "n/v"
+                )
+            if "country" in missing_fields:
+                target_update["country"] = (
+                    _to_ascii(inferred_country) if inferred_country not in (None, "", "n/v") else "n/v"
+                )
+            entities_delta.append(target_update)
+
         if not sites:
             findings_notes = ["No verifiable location or site evidence found (n/v)."]
         else:
@@ -235,7 +315,7 @@ class AgentAG11LocationsSites(BaseAgent):
                 started_at_utc=started_at_utc,
                 finished_at_utc=finished_at_utc,
             ),
-            "entities_delta": sites,
+            "entities_delta": entities_delta,
             "relations_delta": relations,
             "findings": [
                 {
