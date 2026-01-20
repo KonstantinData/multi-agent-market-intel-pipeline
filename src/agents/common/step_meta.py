@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import os
+import subprocess
 from typing import Any, Dict
 
 
@@ -35,7 +36,23 @@ def _resolve_pipeline_version(case_input: Dict[str, Any]) -> str:
     env_git_sha = os.getenv("GIT_SHA")
     if env_git_sha:
         return env_git_sha
+    repo_git_sha = _resolve_repo_git_sha()
+    if repo_git_sha:
+        return repo_git_sha
     return ""
+
+
+def _resolve_repo_git_sha() -> str:
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return ""
+    return result.stdout.strip()
 
 
 def build_step_meta(
