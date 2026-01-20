@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import os
 import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -30,13 +32,15 @@ def _to_ascii(text: str) -> str:
         return ""
     s = str(text)
     # German transliteration
-    s = (s.replace("ä", "ae")
-           .replace("ö", "oe")
-           .replace("ü", "ue")
-           .replace("Ä", "Ae")
-           .replace("Ö", "Oe")
-           .replace("Ü", "Ue")
-           .replace("ß", "ss"))
+    s = (
+        s.replace("ä", "ae")
+        .replace("ö", "oe")
+        .replace("ü", "ue")
+        .replace("Ä", "Ae")
+        .replace("Ö", "Oe")
+        .replace("Ü", "Ue")
+        .replace("ß", "ss")
+    )
     # Remove remaining non-ascii deterministically
     s = s.encode("ascii", errors="ignore").decode("ascii")
     return s
@@ -131,6 +135,8 @@ def _extract_founding_year(text: str) -> str:
         re.compile(r"\bfounded\b\s*(?:in\s*)?(19\d{2}|20\d{2})", re.IGNORECASE),
         re.compile(r"\bestablished\b\s*(?:in\s*)?(19\d{2}|20\d{2})", re.IGNORECASE),
         re.compile(r"\bsince\b\s*(19\d{2}|20\d{2})", re.IGNORECASE),
+        re.compile(r"\bgegruendet\b\s*(?:im\s*)?(19\d{2}|20\d{2})", re.IGNORECASE),
+        re.compile(r"\bseit\b\s*(19\d{2}|20\d{2})", re.IGNORECASE),
     ]
     for pat in patterns:
         m = pat.search(text)
@@ -177,6 +183,213 @@ def _extract_legal_name_and_form(text: str) -> Tuple[str, str]:
     return candidate, legal_form
 
 
+def _openai_api_key() -> str:
+    """Primary key location is OPEN-AI-KEY (as required)."""
+    return os.getenv("OPEN-AI-KEY", "").strip() or os.getenv("OPENAI_API_KEY", "").strip()
+
+
+def _normalize_for_contains(s: str) -> str:
+    s = (s or "").lower()
+    s = re.sub(r"[^a-z0-9]+", " ", s)
+    return re.sub(r"\s+", " ", s).strip()
+
+
+def _collect_evidence_lines(pages: List[PageEvidence], max_lines: int = 180) -> Tuple[str, List[str]]:
+    """Collect compact, URL-anchored evidence lines for LLM extraction.
+
+    Deterministic selection:
+    - pick keyword lines with +/- 1 line context
+    - cap total evidence lines to max_lines
+    """
+    keyword_re = re.compile(
+        r"\b("
+        r"handelsregister|commercial register|registergericht|amtsgericht|hrb|hra|"
+        r"impressum|imprint|legal|terms|register|registration|incorporated|"
+        r"founded|established|since|gegruendet|seit|"
+        r"gmbh|ag|ug|kg|ohg|llc|inc\b|ltd\b|limited\b|plc\b|se\b|bv\b|nv\b"
+        r")\b",
+        re.IGNORECASE,
+    )
+
+    out: List[str] = []
+    urls: List[str] = []
+
+    for ev in pages:
+        lines = [(_to_ascii(l).strip()) for l in ev.text.split("\n")]
+        # Keep non-empty lines only
+        lines = [l for l in lines if l]
+        if not lines:
+            continue
+
+        # Determine candidate indices (keyword hits)
+        hit_idxs: List[int] = []
+        for i, l in enumerate(lines):
+            if keyword_re.search(l):
+                hit_idxs.append(i)
+
+        # Include windows around hits, deterministically in ascending order
+        picked: List[int] = []
+        for i in hit_idxs:
+            for j in (i - 1, i, i + 1):
+                if 0 <= j < len(lines) and j not in picked:
+                    picked.append(j)
+
+        # Fallback: include top-of-page context if no hits
+        if not picked:
+            picked = list(range(min(25, len(lines))))
+
+        for idx in picked:
+            if len(out) >= max_lines:
+                break
+            l = lines[idx]
+            if len(l) > 240:
+                l = l[:240]
+            out.append(f"URL: {ev.url}\nLINE: {l}")
+            if ev.url:
+                urls.append(ev.url)
+
+        if len(out) >= max_lines:
+            break
+
+    evidence_text = "\n\n".join(out).strip()
+    # Deterministic URL order + dedupe
+    seen = set()
+    deduped_urls: List[str] = []
+    for u in urls:
+        if u and u not in seen:
+            seen.add(u)
+            deduped_urls.append(u)
+
+    return evidence_text, deduped_urls
+
+
+def _openai_extract_legal_identity(evidence_text: str, api_key: str, timeout_s: float = 25.0) -> Dict[str, Any]:
+    """Evidence-bound extraction of legal identity using OpenAI Chat Completions."""
+    user_content = evidence_text.strip() or "NO_EVIDENCE"
+
+    payload = {
+        "model": "gpt-4o-mini",
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "You are a strict information extractor. Extract ONLY from the provided evidence. "
+                    "Return JSON ONLY (no markdown, no commentary) with keys: "
+                    "legal_name, legal_form, founding_year, registration_signals. "
+                    "Rules: "
+                    "- If a field is not explicitly stated in evidence, output 'n/v'. "
+                    "- Do NOT guess or infer. "
+                    "- Do NOT invent registration numbers or identifiers. "
+                    "- registration_signals must be copied from evidence lines and should include a register marker "
+                    "  like Handelsregister/Registergericht/Amtsgericht/HRB/HRA if present; otherwise 'n/v'. "
+                    "- founding_year must be a 4-digit year (e.g., 1998) or 'n/v'."
+                ),
+            },
+            {"role": "user", "content": user_content[:12000]},
+        ],
+        "temperature": 0,
+    }
+
+    headers = {"Authorization": f"Bearer {api_key}"}
+    with httpx.Client(timeout=timeout_s) as client:
+        resp = client.post("https://api.openai.com/v1/chat/completions", json=payload, headers=headers)
+        resp.raise_for_status()
+        data = resp.json()
+
+    content = (
+        data.get("choices", [{}])[0]
+        .get("message", {})
+        .get("content", "")
+        .strip()
+    )
+    if not content:
+        raise ValueError("empty OpenAI response")
+
+    try:
+        parsed = json.loads(content)
+    except json.JSONDecodeError as e:
+        raise ValueError("OpenAI response is not valid JSON") from e
+
+    if not isinstance(parsed, dict):
+        raise ValueError("OpenAI response JSON is not an object")
+
+    return parsed
+
+
+def _sanitize_llm_outputs(parsed: Dict[str, Any], evidence_text: str) -> Tuple[str, str, str, str]:
+    """Enforce evidence-boundedness and validator compatibility."""
+    ev_norm = _normalize_for_contains(evidence_text)
+
+    raw_legal_name = _to_ascii(str(parsed.get("legal_name", "n/v"))).strip() or "n/v"
+    raw_legal_form = _to_ascii(str(parsed.get("legal_form", "n/v"))).strip() or "n/v"
+    raw_founding_year = _to_ascii(str(parsed.get("founding_year", "n/v"))).strip() or "n/v"
+    raw_registration = _to_ascii(str(parsed.get("registration_signals", "n/v"))).strip() or "n/v"
+
+    # Evidence containment checks (lenient normalization)
+    if raw_legal_name != "n/v":
+        if _normalize_for_contains(raw_legal_name) not in ev_norm:
+            raw_legal_name = "n/v"
+
+    if raw_legal_form != "n/v":
+        if _normalize_for_contains(raw_legal_form) not in ev_norm:
+            raw_legal_form = "n/v"
+
+    # Founding year must be a 4-digit year present in evidence
+    if raw_founding_year != "n/v":
+        m = re.search(r"\b(18\d{2}|19\d{2}|20\d{2})\b", raw_founding_year)
+        year = m.group(1) if m else None
+        if not year or year not in evidence_text:
+            raw_founding_year = "n/v"
+        else:
+            raw_founding_year = year
+
+    # Registration signals must contain known markers and be evidence-contained
+    if raw_registration != "n/v":
+        markers = (
+            "handelsregister",
+            "commercial register",
+            "registergericht",
+            "amtsgericht",
+            "hrb",
+            "hra",
+        )
+        lowered = raw_registration.lower()
+        if not any(marker in lowered for marker in markers):
+            raw_registration = "n/v"
+        else:
+            # If digits appear (possible register numbers), require the exact digit-bearing token to exist in evidence.
+            digit_tokens = re.findall(r"\b(?:hrb|hra)?\s*\d{2,}\b", lowered)
+            for tok in digit_tokens:
+                tok_norm = _normalize_for_contains(tok)
+                if tok_norm and tok_norm not in ev_norm:
+                    raw_registration = "n/v"
+                    break
+
+        if raw_registration != "n/v":
+            if _normalize_for_contains(raw_registration) not in ev_norm:
+                raw_registration = "n/v"
+
+    # Length guards
+    if raw_legal_name != "n/v" and len(raw_legal_name) > 160:
+        raw_legal_name = raw_legal_name[:160]
+    if raw_registration != "n/v" and len(raw_registration) > 400:
+        raw_registration = raw_registration[:400]
+
+    return raw_legal_name, raw_legal_form, raw_founding_year, raw_registration
+
+
+def _dedupe_sources(sources: List[Dict[str, str]]) -> List[Dict[str, str]]:
+    seen = set()
+    deduped: List[Dict[str, str]] = []
+    for s in sources:
+        url = s.get("url", "")
+        if not url or url in seen:
+            continue
+        seen.add(url)
+        deduped.append(s)
+    return deduped
+
+
 class AgentAG10IdentityLegal(BaseAgent):
     step_id = "AG-10"
     agent_name = "ag10_identity_legal"
@@ -194,6 +407,16 @@ class AgentAG10IdentityLegal(BaseAgent):
         if not company_name or not domain or not entity_key:
             return AgentResult(ok=False, output={"error": "missing required meta artifacts"})
 
+        # LLM access is mandatory for AG-10
+        api_key = _openai_api_key()
+        if not api_key:
+            return AgentResult(
+                ok=False,
+                output={
+                    "error": "missing OPEN-AI-KEY in environment (.env) - AG-10 requires LLM access",
+                },
+            )
+
         candidate_paths = [
             "/impressum",
             "/imprint",
@@ -201,73 +424,74 @@ class AgentAG10IdentityLegal(BaseAgent):
             "/legal",
             "/terms",
             "/about",
+            "/kontakt",
+            "/contact",
         ]
 
         pages = _fetch_pages(domain=domain, paths=candidate_paths)
+        evidence_text, evidence_urls = _collect_evidence_lines(pages)
 
-        legal_name = "n/v"
-        legal_form = "n/v"
-        founding_year = "n/v"
-        registration_signals = "n/v"
-        used_sources: List[Dict[str, str]] = []
+        try:
+            parsed = _openai_extract_legal_identity(evidence_text=evidence_text, api_key=api_key)
+        except Exception as e:
+            # Do not leak secrets; keep error short + deterministic
+            return AgentResult(ok=False, output={"error": f"openai_extraction_failed: {type(e).__name__}"})
 
-        accessed_at = _utc_now_iso()
+        legal_name, legal_form, founding_year_s, registration_signals = _sanitize_llm_outputs(
+            parsed=parsed,
+            evidence_text=evidence_text,
+        )
 
-        for ev in pages:
-            before_legal_name = legal_name
-            before_legal_form = legal_form
-            before_founding_year = founding_year
-            before_registration_signals = registration_signals
-
-            if legal_name == "n/v" or legal_form == "n/v":
+        # Deterministic fallback (still evidence-based) for gaps:
+        # We may use regex extractors, but the LLM call remains mandatory.
+        if pages and (legal_name == "n/v" or legal_form == "n/v"):
+            for ev in pages:
                 ln, lf = _extract_legal_name_and_form(ev.text)
-                if ln != "n/v":
-                    legal_name = ln
-                if lf != "n/v":
-                    legal_form = lf
+                if legal_name == "n/v" and ln != "n/v":
+                    legal_name = _to_ascii(ln).strip()
+                if legal_form == "n/v" and lf != "n/v":
+                    legal_form = _to_ascii(lf).strip()
+                if legal_name != "n/v" and legal_form != "n/v":
+                    break
 
-            if founding_year == "n/v":
+        if pages and founding_year_s == "n/v":
+            for ev in pages:
                 fy = _extract_founding_year(ev.text)
                 if fy != "n/v":
-                    founding_year = fy
+                    founding_year_s = fy
+                    break
 
-            if registration_signals == "n/v":
+        if pages and registration_signals == "n/v":
+            for ev in pages:
                 rs = _extract_registration_signals(ev.text)
                 if rs != "n/v":
-                    registration_signals = rs
+                    registration_signals = _to_ascii(rs).strip()
+                    break
 
-            contributed = (
-                (before_legal_name == "n/v" and legal_name != "n/v")
-                or (before_legal_form == "n/v" and legal_form != "n/v")
-                or (before_founding_year == "n/v" and founding_year != "n/v")
-                or (before_registration_signals == "n/v" and registration_signals != "n/v")
-            )
+        founding_year: Any
+        if founding_year_s != "n/v":
+            try:
+                founding_year = int(founding_year_s)
+            except Exception:
+                founding_year = "n/v"
+        else:
+            founding_year = "n/v"
 
-            if ev.url and contributed:
+        # Sources: required if any legal field is present (validator rule).
+        legal_fields = [legal_name, legal_form, founding_year, registration_signals]
+        has_claim = any(v not in (None, "", "n/v") for v in legal_fields)
+
+        accessed_at = _utc_now_iso()
+        used_sources: List[Dict[str, str]] = []
+        if has_claim:
+            for url in evidence_urls:
                 used_sources.append(
                     {
                         "publisher": company_name,
-                        "url": ev.url,
+                        "url": url,
                         "accessed_at_utc": accessed_at,
                     }
                 )
-
-            if legal_name != "n/v" and legal_form != "n/v" and founding_year != "n/v" and registration_signals != "n/v":
-                break
-
-        # Enforce ASCII-only outputs
-        legal_name = _to_ascii(legal_name) if legal_name != "n/v" else "n/v"
-        legal_form = _to_ascii(legal_form) if legal_form != "n/v" else "n/v"
-        registration_signals = _to_ascii(registration_signals) if registration_signals != "n/v" else "n/v"
-
-        seen = set()
-        deduped_sources: List[Dict[str, str]] = []
-        for s in used_sources:
-            u = s.get("url", "")
-            if not u or u in seen:
-                continue
-            seen.add(u)
-            deduped_sources.append(s)
 
         entity_update = {
             "entity_id": "TGT-001",
@@ -277,12 +501,12 @@ class AgentAG10IdentityLegal(BaseAgent):
             "entity_key": entity_key,
             "legal_name": legal_name,
             "legal_form": legal_form,
-            "founding_year": int(founding_year) if founding_year != "n/v" else "n/v",
+            "founding_year": founding_year,
             "registration_signals": registration_signals,
         }
 
         notes: List[str] = []
-        if legal_name == "n/v" and legal_form == "n/v" and founding_year == "n/v" and registration_signals == "n/v":
+        if not has_claim:
             notes.append("No verifiable legal identity evidence found (n/v).")
         else:
             notes.append("Legal identity fields extracted from publicly available pages.")
@@ -300,7 +524,7 @@ class AgentAG10IdentityLegal(BaseAgent):
                     "notes": notes,
                 }
             ],
-            "sources": deduped_sources,
+            "sources": _dedupe_sources(used_sources),
         }
 
         return AgentResult(ok=True, output=output)
