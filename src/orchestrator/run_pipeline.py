@@ -18,6 +18,7 @@ from src.validator.contract_validator import (
     validate_ag10_output,
     validate_ag11_output,
 )
+from src.agents.common.step_meta import utc_now_iso
 
 
 def read_case_input(case_file: str) -> Dict[str, Any]:
@@ -28,6 +29,73 @@ def read_case_input(case_file: str) -> Dict[str, Any]:
 def write_json(path: Path, payload: Dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+
+def _require_step_meta(output_payload: Dict[str, Any], step_id: str, log_path: Path) -> Dict[str, Any]:
+    step_meta = output_payload.get("step_meta")
+    if not isinstance(step_meta, dict):
+        log_line(log_path, f"{step_id} output missing step_meta")
+        raise SystemExit(3)
+    if step_meta.get("step_id") != step_id:
+        log_line(
+            log_path,
+            f"{step_id} output step_meta.step_id mismatch: {step_meta.get('step_id')}",
+        )
+        raise SystemExit(3)
+    run_id = step_meta.get("run_id")
+    if not isinstance(run_id, str) or not run_id.strip():
+        log_line(log_path, f"{step_id} output missing step_meta.run_id")
+        raise SystemExit(3)
+    pipeline_version = step_meta.get("pipeline_version")
+    if not isinstance(pipeline_version, str) or not pipeline_version.strip():
+        log_line(log_path, f"{step_id} output missing step_meta.pipeline_version")
+        raise SystemExit(3)
+    return step_meta
+
+
+def _assert_validator_consistency(
+    validator_payload: Dict[str, Any],
+    step_meta: Dict[str, Any],
+    step_id: str,
+    log_path: Path,
+) -> None:
+    mismatches = []
+    for field in ("step_id", "run_id", "pipeline_version"):
+        if validator_payload.get(field) != step_meta.get(field):
+            mismatches.append(field)
+    if mismatches:
+        log_line(
+            log_path,
+            f"{step_id} validator consistency check failed for fields: {', '.join(mismatches)}",
+        )
+        raise SystemExit(3)
+
+
+def build_validator_payload(
+    *,
+    validation_result: Any,
+    output_payload: Dict[str, Any],
+    log_path: Path,
+) -> Dict[str, Any]:
+    step_id = validation_result.step_id
+    step_meta = _require_step_meta(output_payload, step_id, log_path)
+    validator_payload = {
+        "step_id": step_id,
+        "run_id": step_meta["run_id"],
+        "pipeline_version": step_meta["pipeline_version"],
+        "validated_at_utc": utc_now_iso(),
+        "ok": validation_result.ok,
+        "errors": [
+            {"code": e.code, "message": e.message, "path": e.path}
+            for e in validation_result.errors
+        ],
+        "warnings": [
+            {"code": w.code, "message": w.message, "path": w.path}
+            for w in validation_result.warnings
+        ],
+    }
+    _assert_validator_consistency(validator_payload, step_meta, step_id, log_path)
+    return validator_payload
 
 
 def main() -> None:
@@ -70,12 +138,11 @@ def main() -> None:
     contract = step_contracts[step_id]
 
     vr = validate_ag00_output(agent_result.output, contract)
-    validator_payload = {
-        "step_id": vr.step_id,
-        "ok": vr.ok,
-        "errors": [{"code": e.code, "message": e.message, "path": e.path} for e in vr.errors],
-        "warnings": [{"code": w.code, "message": w.message, "path": w.path} for w in vr.warnings],
-    }
+    validator_payload = build_validator_payload(
+        validation_result=vr,
+        output_payload=agent_result.output,
+        log_path=log_path,
+    )
 
     write_json(step_dir / "validator.json", validator_payload)
     log_line(log_path, f"AG-00 gatekeeper ok={vr.ok}")
@@ -117,12 +184,11 @@ def main() -> None:
     contract01 = step_contracts[step_id]
     vr01 = validate_ag01_output(agent01_result.output, contract01)
 
-    validator_payload01 = {
-        "step_id": vr01.step_id,
-        "ok": vr01.ok,
-        "errors": [{"code": e.code, "message": e.message, "path": e.path} for e in vr01.errors],
-        "warnings": [{"code": w.code, "message": w.message, "path": w.path} for w in vr01.warnings],
-    }
+    validator_payload01 = build_validator_payload(
+        validation_result=vr01,
+        output_payload=agent01_result.output,
+        log_path=log_path,
+    )
 
     write_json(step_dir / "validator.json", validator_payload01)
     log_line(log_path, f"AG-01 gatekeeper ok={vr01.ok}")
@@ -165,12 +231,11 @@ def main() -> None:
         expected_domain=str(case_normalized.get("web_domain_normalized", "")),
     )
 
-    validator_payload10 = {
-        "step_id": vr10.step_id,
-        "ok": vr10.ok,
-        "errors": [{"code": e.code, "message": e.message, "path": e.path} for e in vr10.errors],
-        "warnings": [{"code": w.code, "message": w.message, "path": w.path} for w in vr10.warnings],
-    }
+    validator_payload10 = build_validator_payload(
+        validation_result=vr10,
+        output_payload=agent10_result.output,
+        log_path=log_path,
+    )
 
     write_json(step_dir / "validator.json", validator_payload10)
     log_line(log_path, f"AG-10 gatekeeper ok={vr10.ok}")
@@ -208,12 +273,11 @@ def main() -> None:
     contract11 = step_contracts[step_id]
     vr11 = validate_ag11_output(agent11_result.output, contract11)
 
-    validator_payload11 = {
-        "step_id": vr11.step_id,
-        "ok": vr11.ok,
-        "errors": [{"code": e.code, "message": e.message, "path": e.path} for e in vr11.errors],
-        "warnings": [{"code": w.code, "message": w.message, "path": w.path} for w in vr11.warnings],
-    }
+    validator_payload11 = build_validator_payload(
+        validation_result=vr11,
+        output_payload=agent11_result.output,
+        log_path=log_path,
+    )
 
     write_json(step_dir / "validator.json", validator_payload11)
     log_line(log_path, f"AG-11 gatekeeper ok={vr11.ok}")
