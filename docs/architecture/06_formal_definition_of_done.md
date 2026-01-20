@@ -94,6 +94,8 @@ Each `output.json` contains:
   * publisher
   * url
   * accessed_at_utc
+* When findings report no evidence, include an audit trail of checked endpoints
+  * `search_attempts` entries include `url` and `accessed_at_utc`
 * Unverifiable data is explicitly `"n/v"`
 
 ---

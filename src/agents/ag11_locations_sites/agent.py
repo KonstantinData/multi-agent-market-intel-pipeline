@@ -162,11 +162,21 @@ class AgentAG11LocationsSites(BaseAgent):
             "/warehouses",
         ]
 
+        accessed_at = _utc_now_iso()
+        search_attempts = _dedupe_search_attempts(
+            [
+                {
+                    "url": f"https://{domain}{path}",
+                    "accessed_at_utc": accessed_at,
+                }
+                for path in candidate_paths
+            ]
+        )
+
         pages = _fetch_pages(domain=domain, paths=candidate_paths)
 
         sites: List[Dict[str, str]] = []
         used_sources: List[Dict[str, str]] = []
-        accessed_at = _utc_now_iso()
 
         for ev in pages:
             contributed = False
@@ -234,6 +244,7 @@ class AgentAG11LocationsSites(BaseAgent):
                 }
             ],
             "sources": _dedupe_sources(used_sources),
+            "search_attempts": search_attempts,
         }
 
         return AgentResult(ok=True, output=output)
@@ -248,4 +259,16 @@ def _dedupe_sources(sources: List[Dict[str, str]]) -> List[Dict[str, str]]:
             continue
         seen.add(url)
         deduped.append(s)
+    return deduped
+
+
+def _dedupe_search_attempts(attempts: List[Dict[str, str]]) -> List[Dict[str, str]]:
+    seen = set()
+    deduped: List[Dict[str, str]] = []
+    for attempt in attempts:
+        url = attempt.get("url", "")
+        if not url or url in seen:
+            continue
+        seen.add(url)
+        deduped.append(attempt)
     return deduped
