@@ -479,3 +479,164 @@ def validate_ag10_output(
 
     ok = len(errors) == 0
     return ValidatorResult(ok=ok, step_id=step_id, errors=errors, warnings=warnings)
+
+def validate_ag11_output(output: Dict[str, Any], contract: Dict[str, Any]) -> ValidatorResult:
+    step_id = contract["step_id"]
+    errors: List[ValidationIssue] = []
+    warnings: List[ValidationIssue] = []
+
+    required_sections = contract["outputs"]["required_sections"]
+    for section in required_sections:
+        if section not in output:
+            errors.append(
+                ValidationIssue(
+                    code=error_codes.MISSING_REQUIRED_SECTIONS,
+                    message=f"Missing required section: {section}",
+                    path=f"$.{section}",
+                )
+            )
+
+    if errors:
+        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
+
+    entities = output.get("entities_delta", [])
+    if not isinstance(entities, list):
+        errors.append(
+            ValidationIssue(
+                code=error_codes.MISSING_REQUIRED_FIELDS,
+                message="entities_delta must be a list",
+                path="$.entities_delta",
+            )
+        )
+        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
+
+    relations = output.get("relations_delta", [])
+    if not isinstance(relations, list):
+        errors.append(
+            ValidationIssue(
+                code=error_codes.MISSING_REQUIRED_FIELDS,
+                message="relations_delta must be a list",
+                path="$.relations_delta",
+            )
+        )
+        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
+
+    site_keys: List[str] = []
+    for i, entity in enumerate(entities):
+        if not isinstance(entity, dict):
+            errors.append(
+                ValidationIssue(
+                    code=error_codes.INVALID_SITE_ENTITY,
+                    message="site entities must be objects",
+                    path=f"$.entities_delta[{i}]",
+                )
+            )
+            continue
+        if entity.get("entity_type") != "site":
+            errors.append(
+                ValidationIssue(
+                    code=error_codes.INVALID_SITE_ENTITY,
+                    message="entities_delta must only contain site entities",
+                    path=f"$.entities_delta[{i}].entity_type",
+                )
+            )
+            continue
+        required_fields = ["entity_key", "entity_name", "site_type", "country_region", "city"]
+        for field in required_fields:
+            if field not in entity:
+                errors.append(
+                    ValidationIssue(
+                        code=error_codes.MISSING_REQUIRED_FIELDS,
+                        message=f"Missing required field in site entity: {field}",
+                        path=f"$.entities_delta[{i}].{field}",
+                    )
+                )
+        country_region = str(entity.get("country_region", "")).strip()
+        if country_region == "":
+            errors.append(
+                ValidationIssue(
+                    code=error_codes.MISSING_REQUIRED_FIELDS,
+                    message="country_region must be present or 'n/v'",
+                    path=f"$.entities_delta[{i}].country_region",
+                )
+            )
+        entity_key = str(entity.get("entity_key", "")).strip()
+        if entity_key:
+            site_keys.append(entity_key)
+
+    relation_site_keys = set()
+    for i, relation in enumerate(relations):
+        if not isinstance(relation, dict):
+            errors.append(
+                ValidationIssue(
+                    code=error_codes.MISSING_REQUIRED_FIELDS,
+                    message="relations_delta entries must be objects",
+                    path=f"$.relations_delta[{i}]",
+                )
+            )
+            continue
+        if relation.get("relation_type") != "operates_at":
+            errors.append(
+                ValidationIssue(
+                    code=error_codes.MISSING_REQUIRED_FIELDS,
+                    message="relations_delta must use relation_type='operates_at'",
+                    path=f"$.relations_delta[{i}].relation_type",
+                )
+            )
+        if relation.get("from_entity_id") != "TGT-001":
+            errors.append(
+                ValidationIssue(
+                    code=error_codes.MISSING_SITE_RELATION,
+                    message="site relations must reference from_entity_id='TGT-001'",
+                    path=f"$.relations_delta[{i}].from_entity_id",
+                )
+            )
+        to_key = str(relation.get("to_entity_key", "")).strip()
+        if to_key:
+            relation_site_keys.add(to_key)
+
+    for site_key in site_keys:
+        if site_key not in relation_site_keys:
+            errors.append(
+                ValidationIssue(
+                    code=error_codes.MISSING_SITE_RELATION,
+                    message="site entities must have operates_at relation from TGT-001",
+                    path="$.relations_delta",
+                )
+            )
+
+    sources = output.get("sources", [])
+    if site_keys:
+        if not isinstance(sources, list) or len(sources) == 0:
+            errors.append(
+                ValidationIssue(
+                    code=error_codes.MISSING_SOURCES_FOR_CLAIMS,
+                    message="sources must be non-empty when site entities are present",
+                    path="$.sources",
+                )
+            )
+        else:
+            for i, s in enumerate(sources):
+                if not isinstance(s, dict):
+                    errors.append(
+                        ValidationIssue(
+                            code=error_codes.SOURCE_MISSING_REQUIRED_FIELDS,
+                            message="source entries must be objects",
+                            path=f"$.sources[{i}]",
+                        )
+                    )
+                    continue
+                publisher = str(s.get("publisher", "")).strip()
+                url = str(s.get("url", "")).strip()
+                accessed = str(s.get("accessed_at_utc", "")).strip()
+                if not publisher or not url or not accessed or not _is_http_url(url):
+                    errors.append(
+                        ValidationIssue(
+                            code=error_codes.SOURCE_MISSING_REQUIRED_FIELDS,
+                            message="source requires publisher, http(s) url, accessed_at_utc",
+                            path=f"$.sources[{i}]",
+                        )
+                    )
+
+    ok = len(errors) == 0
+    return ValidatorResult(ok=ok, step_id=step_id, errors=errors, warnings=warnings)

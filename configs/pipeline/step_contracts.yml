@@ -90,3 +90,33 @@ steps:
         - "invalid_registration_signals"
         - "missing_sources_for_claims"
         - "source_missing_required_fields"
+
+ - step_id: "AG-11"
+    agent_name: "ag11_locations_sites"
+    purpose: "Extract verified locations and operating sites for the target company"
+    inputs:
+      required_meta_artifacts:
+        - "case_normalized.json"
+        - "target_entity_stub.json"
+    outputs:
+      required_sections:
+        - "step_meta"
+        - "entities_delta"
+        - "relations_delta"
+        - "findings"
+        - "sources"
+      site_entity_required_fields:
+        - "entity_key"
+        - "entity_type"
+        - "entity_name"
+        - "site_type"
+        - "country_region"
+        - "city"
+    validation:
+      hard_fail_if:
+        - "missing_required_sections"
+        - "missing_required_fields"
+        - "missing_sources_for_claims"
+        - "source_missing_required_fields"
+        - "missing_site_relation"
+        - "invalid_site_entity"

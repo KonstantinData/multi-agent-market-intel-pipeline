@@ -13,5 +13,7 @@ INVALID_REGISTRATION_SIGNALS = "invalid_registration_signals"
 MISSING_SOURCES_FOR_CLAIMS = "missing_sources_for_claims"
 SOURCE_MISSING_REQUIRED_FIELDS = "source_missing_required_fields"
 RELATIONS_NOT_EMPTY = "relations_not_empty"
+MISSING_SITE_RELATION = "missing_site_relation"
+INVALID_SITE_ENTITY = "invalid_site_entity"
 
 
