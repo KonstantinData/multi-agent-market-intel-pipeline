@@ -1,6 +1,6 @@
 name: Pipeline Manual Run
 
-on:
+'on':
   workflow_dispatch:
     inputs:
       confirm:
