@@ -9,7 +9,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
-
 import streamlit as st
 
 
@@ -20,6 +19,79 @@ import streamlit as st
 REPO_ROOT = Path(__file__).resolve().parents[1]
 RUNS_DIR = REPO_ROOT / "artifacts" / "runs"
 RUNS_ARCHIVE_DIR = REPO_ROOT / "artifacts" / "runs_archived"
+DOTENV_PATH = REPO_ROOT / ".env"
+
+
+# -------------------------
+# Minimal .env loader (no deps, no secret logging)
+# -------------------------
+
+def _parse_dotenv_file(path: Path) -> dict[str, str]:
+    """
+    Parses .env lines like:
+      KEY=value
+      export KEY=value
+      KEY="value"
+      KEY='value'
+    Ignores comments and blank lines.
+    """
+    out: dict[str, str] = {}
+    if not path.exists() or not path.is_file():
+        return out
+
+    try:
+        lines = path.read_text(encoding="utf-8", errors="ignore").splitlines()
+    except Exception:
+        return out
+
+    for raw in lines:
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+
+        if line.lower().startswith("export "):
+            line = line[7:].strip()
+
+        if "=" not in line:
+            continue
+
+        k, v = line.split("=", 1)
+        k = k.strip()
+        v = v.strip()
+
+        if not k:
+            continue
+
+        # Strip surrounding quotes
+        if len(v) >= 2 and ((v[0] == v[-1] == '"') or (v[0] == v[-1] == "'")):
+            v = v[1:-1]
+
+        out[k] = v
+
+    return out
+
+
+def _build_subprocess_env() -> dict[str, str]:
+    """
+    Builds subprocess env by merging:
+      - current os.environ
+      - REPO_ROOT/.env (only for keys not already present)
+
+    Also mirrors OPEN-AI-KEY -> OPENAI_API_KEY if the latter is missing
+    (keeps OPEN-AI-KEY as primary).
+    """
+    env = os.environ.copy()
+
+    dotenv = _parse_dotenv_file(DOTENV_PATH)
+    for k, v in dotenv.items():
+        if k not in env:
+            env[k] = v
+
+    # Compatibility mirror (do not overwrite)
+    if "OPEN-AI-KEY" in env and "OPENAI_API_KEY" not in env:
+        env["OPENAI_API_KEY"] = env["OPEN-AI-KEY"]
+
+    return env
 
 
 # -------------------------
@@ -232,7 +304,7 @@ def start_pipeline_subprocess(run_id: str, case_file: Path) -> subprocess.Popen:
         cwd=str(REPO_ROOT),
         stdout=log_f,
         stderr=log_f,
-        env=os.environ.copy(),
+        env=_build_subprocess_env(),
     )
     return proc
 
