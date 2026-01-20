@@ -178,8 +178,6 @@ def main() -> None:
         log_line(log_path, "PIPELINE STOP (AG-10 contract validation failed)")
         raise SystemExit(3)
 
-    log_line(log_path, "PIPELINE END (AG-00, AG-01, AG-10 completed successfully)")
-
     # --- Step: AG-11 ---
     step_id = "AG-11"
     step_dir = ctx.steps_dir / step_id
