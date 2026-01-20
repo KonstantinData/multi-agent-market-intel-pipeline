@@ -10,7 +10,7 @@ def _step_meta() -> dict:
         "run_id": "run-0001",
         "started_at_utc": "2024-01-01T00:00:00Z",
         "finished_at_utc": "2024-01-01T00:00:01Z",
-        "pipeline_version": "git:abc123",
+        "pipeline_version": "abc1234",
     }
 
 
@@ -106,6 +106,17 @@ def test_ag01_gatekeeper_fails_missing_step_meta_field() -> None:
     contract = load_step_contracts("configs/pipeline/step_contracts.yml")["AG-01"]
     output = _base_ag01_output()
     output["step_meta"].pop("started_at_utc")
+
+    vr = validate_ag01_output(output, contract)
+
+    assert vr.ok is False
+    assert len(vr.errors) >= 1
+
+
+def test_ag01_gatekeeper_fails_invalid_pipeline_version() -> None:
+    contract = load_step_contracts("configs/pipeline/step_contracts.yml")["AG-01"]
+    output = _base_ag01_output()
+    output["step_meta"]["pipeline_version"] = "n/v"
 
     vr = validate_ag01_output(output, contract)
 

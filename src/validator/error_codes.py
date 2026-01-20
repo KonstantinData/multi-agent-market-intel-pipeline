@@ -6,6 +6,7 @@ MISSING_REQUIRED_FIELDS = "missing_required_fields"
 INVALID_DOMAIN_FORMAT = "invalid_domain_format"
 INVALID_ENTITY_KEY = "invalid_entity_key"
 INVALID_STEP_META_TIMESTAMP = "invalid_step_meta_timestamp"
+INVALID_PIPELINE_VERSION = "invalid_pipeline_version"
 
 LOW_QUALITY_COMPANY_NAME = "low_quality_company_name"
 MISSING_TARGET_ENTITY = "missing_target_entity"
@@ -16,4 +17,3 @@ SOURCE_MISSING_REQUIRED_FIELDS = "source_missing_required_fields"
 RELATIONS_NOT_EMPTY = "relations_not_empty"
 MISSING_SITE_RELATION = "missing_site_relation"
 INVALID_SITE_ENTITY = "invalid_site_entity"
-

@@ -140,6 +140,10 @@ def _is_http_url(url: str) -> bool:
     return u.startswith("http://") or u.startswith("https://")
 
 _ISO_UTC_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
+_PIPELINE_VERSION_RE = re.compile(
+    r"^(?:[0-9a-f]{7,40}|\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?\+[0-9A-Za-z.-]+)$",
+    re.IGNORECASE,
+)
 _CLAIM_KEYWORDS = re.compile(
     r"\b("
     r"founded|incorporated|headquartered|headquarters|based in|located in|"
@@ -208,6 +212,19 @@ def _validate_step_meta(
                         code=error_codes.INVALID_STEP_META_TIMESTAMP,
                         message=f"step_meta.{field} must be ISO-8601 UTC (YYYY-MM-DDTHH:MM:SSZ)",
                         path=f"$.step_meta.{field}",
+                    )
+                )
+
+    pipeline_version = step_meta.get("pipeline_version")
+    if isinstance(pipeline_version, str):
+        pipeline_version = pipeline_version.strip()
+        if pipeline_version:
+            if pipeline_version == "n/v" or not _PIPELINE_VERSION_RE.match(pipeline_version):
+                errors.append(
+                    ValidationIssue(
+                        code=error_codes.INVALID_PIPELINE_VERSION,
+                        message="step_meta.pipeline_version must be a git SHA or SemVer with build metadata",
+                        path="$.step_meta.pipeline_version",
                     )
                 )
 

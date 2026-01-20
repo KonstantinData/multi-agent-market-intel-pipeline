@@ -35,7 +35,7 @@ def _resolve_pipeline_version(case_input: Dict[str, Any]) -> str:
     env_git_sha = os.getenv("GIT_SHA")
     if env_git_sha:
         return env_git_sha
-    return "n/v"
+    return ""
 
 
 def build_step_meta(

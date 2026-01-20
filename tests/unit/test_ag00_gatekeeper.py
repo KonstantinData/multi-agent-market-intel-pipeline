@@ -10,7 +10,7 @@ def _step_meta() -> dict:
         "run_id": "run-0001",
         "started_at_utc": "2024-01-01T00:00:00Z",
         "finished_at_utc": "2024-01-01T00:00:01Z",
-        "pipeline_version": "git:abc123",
+        "pipeline_version": "abc1234",
     }
 
 
@@ -122,6 +122,35 @@ def test_ag00_gatekeeper_fails_missing_step_meta_field() -> None:
         "sources": [],
     }
     output["step_meta"].pop("run_id")
+
+    vr = validate_ag00_output(output, contract)
+
+    assert vr.ok is False
+    assert len(vr.errors) >= 1
+
+
+def test_ag00_gatekeeper_fails_invalid_pipeline_version() -> None:
+    contract = load_step_contracts("configs/pipeline/step_contracts.yml")["AG-00"]
+    output = {
+        "step_meta": _step_meta(),
+        "case_normalized": {
+            "company_name_canonical": "Liquisto Technologies GmbH",
+            "web_domain_normalized": "liquisto.com",
+            "entity_key": "domain:liquisto.com",
+            "domain_valid": True,
+        },
+        "target_entity_stub": {
+            "entity_type": "target_company",
+            "entity_name": "Liquisto Technologies GmbH",
+            "domain": "liquisto.com",
+            "entity_key": "domain:liquisto.com",
+        },
+        "entities_delta": [],
+        "relations_delta": [],
+        "findings": [{"summary": "Intake normalized", "notes": []}],
+        "sources": [],
+    }
+    output["step_meta"]["pipeline_version"] = "n/v"
 
     vr = validate_ag00_output(output, contract)
 
