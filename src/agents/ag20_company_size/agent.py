@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional
 import httpx
 
 from src.agents.common.base_agent import AgentResult, BaseAgent
+from src.agents.common.step_meta import build_step_meta, utc_now_iso
 
 
 @dataclass(frozen=True)
@@ -254,6 +255,7 @@ class AgentAG20CompanySize(BaseAgent):
         meta_case_normalized: Dict[str, Any],
         meta_target_entity_stub: Dict[str, Any],
     ) -> AgentResult:
+        started_at_utc = utc_now_iso()
         company_name = _to_ascii(str(meta_case_normalized.get("company_name_canonical", ""))).strip()
         domain = str(meta_case_normalized.get("web_domain_normalized", "")).strip()
         entity_key = str(meta_case_normalized.get("entity_key", "")).strip()
@@ -373,11 +375,16 @@ class AgentAG20CompanySize(BaseAgent):
             "market_scope_signal": market_scope_signal,
         }
 
+        finished_at_utc = utc_now_iso()
+
         output: Dict[str, Any] = {
-            "step_meta": {
-                "step_id": self.step_id,
-                "agent_name": self.agent_name,
-            },
+            "step_meta": build_step_meta(
+                case_input=case_input,
+                step_id=self.step_id,
+                agent_name=self.agent_name,
+                started_at_utc=started_at_utc,
+                finished_at_utc=finished_at_utc,
+            ),
             "entities_delta": [target_update],
             "findings": [
                 {

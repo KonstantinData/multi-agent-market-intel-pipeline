@@ -3,9 +3,20 @@ from __future__ import annotations
 from src.validator.contract_validator import load_step_contracts, validate_ag01_output
 
 
+def _step_meta() -> dict:
+    return {
+        "step_id": "AG-01",
+        "agent_name": "ag01_source_registry",
+        "run_id": "run-0001",
+        "started_at_utc": "2024-01-01T00:00:00Z",
+        "finished_at_utc": "2024-01-01T00:00:01Z",
+        "pipeline_version": "git:abc123",
+    }
+
+
 def _base_ag01_output() -> dict:
     return {
-        "step_meta": {"step_id": "AG-01", "agent_name": "ag01_source_registry"},
+        "step_meta": _step_meta(),
         "source_registry": {
             "primary_sources": [
                 {
@@ -69,6 +80,17 @@ def test_ag01_gatekeeper_fails_findings_with_claims() -> None:
     contract = load_step_contracts("configs/pipeline/step_contracts.yml")["AG-01"]
     output = _base_ag01_output()
     output["findings"] = [{"summary": "The company was founded in 2020.", "notes": []}]
+
+    vr = validate_ag01_output(output, contract)
+
+    assert vr.ok is False
+    assert len(vr.errors) >= 1
+
+
+def test_ag01_gatekeeper_fails_missing_step_meta_field() -> None:
+    contract = load_step_contracts("configs/pipeline/step_contracts.yml")["AG-01"]
+    output = _base_ag01_output()
+    output["step_meta"].pop("started_at_utc")
 
     vr = validate_ag01_output(output, contract)
 

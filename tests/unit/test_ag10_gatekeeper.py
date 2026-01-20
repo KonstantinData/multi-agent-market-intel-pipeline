@@ -3,9 +3,20 @@ from __future__ import annotations
 from src.validator.contract_validator import load_step_contracts, validate_ag10_output
 
 
+def _step_meta() -> dict:
+    return {
+        "step_id": "AG-10",
+        "agent_name": "ag10_identity_legal",
+        "run_id": "run-0001",
+        "started_at_utc": "2024-01-01T00:00:00Z",
+        "finished_at_utc": "2024-01-01T00:00:01Z",
+        "pipeline_version": "git:abc123",
+    }
+
+
 def _base_ag10_output() -> dict:
     return {
-        "step_meta": {"step_id": "AG-10", "agent_name": "ag10_identity_legal"},
+        "step_meta": _step_meta(),
         "entities_delta": [
             {
                 "entity_id": "TGT-001",
@@ -99,6 +110,17 @@ def test_ag10_gatekeeper_fails_missing_target_entity() -> None:
     contract = load_step_contracts("configs/pipeline/step_contracts.yml")["AG-10"]
     output = _base_ag10_output()
     output["entities_delta"] = []
+
+    vr = validate_ag10_output(output, contract, expected_entity_key="domain:liquisto.com", expected_domain="liquisto.com")
+
+    assert vr.ok is False
+    assert len(vr.errors) >= 1
+
+
+def test_ag10_gatekeeper_fails_missing_step_meta_field() -> None:
+    contract = load_step_contracts("configs/pipeline/step_contracts.yml")["AG-10"]
+    output = _base_ag10_output()
+    output["step_meta"].pop("finished_at_utc")
 
     vr = validate_ag10_output(output, contract, expected_entity_key="domain:liquisto.com", expected_domain="liquisto.com")
 
