@@ -87,5 +87,6 @@ steps:
         - "missing_target_entity"
         - "invalid_entity_key"
         - "invalid_founding_year"
+        - "invalid_registration_signals"
         - "missing_sources_for_claims"
         - "source_missing_required_fields"

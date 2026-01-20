@@ -45,6 +45,16 @@ def test_ag10_gatekeeper_passes_valid_output() -> None:
     assert vr.ok is True
     assert vr.errors == []
 
+def test_ag10_gatekeeper_fails_invalid_registration_signals() -> None:
+    contract = load_step_contracts("configs/pipeline/step_contracts.yml")["AG-10"]
+    output = _base_ag10_output()
+    output["entities_delta"][0]["registration_signals"] = "123456"
+
+    vr = validate_ag10_output(output, contract, expected_entity_key="domain:liquisto.com", expected_domain="liquisto.com")
+
+    assert vr.ok is False
+    assert len(vr.errors) >= 1
+
 
 def test_ag10_gatekeeper_warns_all_nv_fields() -> None:
     contract = load_step_contracts("configs/pipeline/step_contracts.yml")["AG-10"]

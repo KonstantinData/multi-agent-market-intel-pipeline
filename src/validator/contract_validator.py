@@ -409,6 +409,26 @@ def validate_ag10_output(
                     )
                 )
 
+    registration_signals = str(target.get("registration_signals", "")).strip()
+    if registration_signals and registration_signals != "n/v":
+        markers = (
+            "handelsregister",
+            "commercial register",
+            "registergericht",
+            "amtsgericht",
+            "hrb",
+            "hra",
+        )
+        lowered = registration_signals.lower()
+        if not any(marker in lowered for marker in markers):
+            errors.append(
+                ValidationIssue(
+                    code=error_codes.INVALID_REGISTRATION_SIGNALS,
+                    message="registration_signals must include a known register marker (no invented registration numbers)",
+                    path="$.entities_delta[?(@.entity_id=='TGT-001')].registration_signals",
+                )
+            )
+
     # Evidence rule: if any legal field is present, require sources
     legal_fields = ["legal_name", "legal_form", "founding_year", "registration_signals"]
     has_claim = any(target.get(k) not in (None, "", "n/v") for k in legal_fields)
