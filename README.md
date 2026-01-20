@@ -241,6 +241,16 @@ The orchestration entrypoint is:
 python -m src.orchestrator.run_pipeline
 ```
 
+Currently, the orchestrator runs the following agents:
+
+- AG-00 (Intake Normalization)
+- AG-01 (Source Registry)
+- AG-10 (Identity and Legal)
+- AG-11 (Locations and Sites)
+
+Additional agent entry points exist under `src/agents/`, but they are not yet wired into the
+orchestrator.
+
 A typical run expects a case input with:
 
 - `company_name`
