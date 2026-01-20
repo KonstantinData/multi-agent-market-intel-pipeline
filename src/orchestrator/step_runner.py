@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Dict
 
-from src.agents.common.base_agent import AgentResult
+from src.agent_common.base_agent import AgentResult
 from src.orchestrator.artifact_store import ArtifactStore
 
 

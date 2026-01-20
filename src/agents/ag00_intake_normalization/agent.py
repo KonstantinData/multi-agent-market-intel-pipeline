@@ -3,9 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
-from src.agents.common.base_agent import AgentResult, BaseAgent
-from src.agents.common.step_meta import build_step_meta, utc_now_iso
-from src.agents.common.text_normalization import (
+from src.agent_common.base_agent import AgentResult, BaseAgent
+from src.agent_common.step_meta import build_step_meta, utc_now_iso
+from src.agent_common.text_normalization import (
     is_valid_domain,
     normalize_domain,
     normalize_whitespace,

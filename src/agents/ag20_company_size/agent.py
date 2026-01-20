@@ -9,8 +9,8 @@ from typing import Any, Dict, List, Optional
 
 import httpx
 
-from src.agents.common.base_agent import AgentResult, BaseAgent
-from src.agents.common.step_meta import build_step_meta, utc_now_iso
+from src.agent_common.base_agent import AgentResult, BaseAgent
+from src.agent_common.step_meta import build_step_meta, utc_now_iso
 
 
 @dataclass(frozen=True)
