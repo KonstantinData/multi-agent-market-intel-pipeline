@@ -75,6 +75,10 @@
 
 * imprint, registers, official pages
 
+**D) field_sources**
+
+* field-level evidence URLs for each non-n/v legal field
+
 **Gatekeeper rules:**
 
 * entity_type = target_company

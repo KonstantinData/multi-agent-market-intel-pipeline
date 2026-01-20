@@ -515,6 +515,7 @@ def validate_ag10_output(
     legal_fields = ["legal_name", "legal_form", "founding_year", "registration_signals"]
     has_claim = any(target.get(k) not in (None, "", "n/v") for k in legal_fields)
     sources = output.get("sources", [])
+    field_sources = output.get("field_sources", {})
 
     if has_claim:
         if not isinstance(sources, list) or len(sources) == 0:
@@ -545,6 +546,64 @@ def validate_ag10_output(
                             code=error_codes.SOURCE_MISSING_REQUIRED_FIELDS,
                             message="source requires publisher, http(s) url, accessed_at_utc",
                             path=f"$.sources[{i}]",
+                        )
+                    )
+
+    if not isinstance(field_sources, dict):
+        errors.append(
+            ValidationIssue(
+                code=error_codes.MISSING_REQUIRED_FIELDS,
+                message="field_sources must be an object keyed by legal field",
+                path="$.field_sources",
+            )
+        )
+    else:
+        for field in legal_fields:
+            if field not in field_sources:
+                errors.append(
+                    ValidationIssue(
+                        code=error_codes.MISSING_REQUIRED_FIELDS,
+                        message=f"field_sources missing key for {field}",
+                        path=f"$.field_sources.{field}",
+                    )
+                )
+                continue
+
+            evidence_list = field_sources.get(field)
+            if not isinstance(evidence_list, list):
+                errors.append(
+                    ValidationIssue(
+                        code=error_codes.MISSING_REQUIRED_FIELDS,
+                        message=f"field_sources.{field} must be a list",
+                        path=f"$.field_sources.{field}",
+                    )
+                )
+                continue
+
+            if target.get(field) not in (None, "", "n/v") and len(evidence_list) == 0:
+                errors.append(
+                    ValidationIssue(
+                        code=error_codes.MISSING_SOURCES_FOR_CLAIMS,
+                        message=f"field_sources.{field} must include at least one evidence url for non-n/v values",
+                        path=f"$.field_sources.{field}",
+                    )
+                )
+                continue
+
+            for idx, evidence in enumerate(evidence_list):
+                if isinstance(evidence, str):
+                    url = evidence.strip()
+                elif isinstance(evidence, dict):
+                    url = str(evidence.get("url", "")).strip()
+                else:
+                    url = ""
+
+                if not url or not _is_http_url(url):
+                    errors.append(
+                        ValidationIssue(
+                            code=error_codes.SOURCE_MISSING_REQUIRED_FIELDS,
+                            message=f"field_sources.{field} evidence must include a http(s) url",
+                            path=f"$.field_sources.{field}[{idx}]",
                         )
                     )
 
