@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 from pathlib import Path
 from typing import Any, Dict
 
@@ -254,14 +255,72 @@ def _load_pipeline_dag(repo_root: Path) -> list[StepNode]:
     return dag.nodes
 
 
+def _next_backup_path(run_root: Path) -> Path:
+    timestamp = (
+        utc_now_iso()
+        .replace(":", "")
+        .replace("-", "")
+        .replace("T", "_")
+        .replace("Z", "")
+    )
+    candidate = run_root.with_name(f"{run_root.name}.bak-{timestamp}")
+    if not candidate.exists():
+        return candidate
+    counter = 1
+    while True:
+        numbered = run_root.with_name(f"{run_root.name}.bak-{timestamp}-{counter}")
+        if not numbered.exists():
+            return numbered
+        counter += 1
+
+
+def _prepare_run_root(
+    *,
+    repo_root: Path,
+    run_id: str,
+    overwrite: bool,
+    backup_existing: bool,
+) -> Path:
+    run_root = repo_root / "artifacts" / "runs" / run_id
+    if run_root.exists() and any(run_root.iterdir()):
+        if overwrite:
+            shutil.rmtree(run_root)
+        elif backup_existing:
+            backup_root = _next_backup_path(run_root)
+            shutil.move(str(run_root), str(backup_root))
+        else:
+            raise SystemExit(
+                "Run directory already exists and is not empty. "
+                "Use --overwrite to replace or --backup-existing to archive."
+            )
+    return run_root
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--case-file", required=True)
     parser.add_argument("--pipeline-version")
+    run_dir_group = parser.add_mutually_exclusive_group()
+    run_dir_group.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="Replace an existing non-empty run directory.",
+    )
+    run_dir_group.add_argument(
+        "--backup-existing",
+        action="store_true",
+        help="Archive an existing non-empty run directory before running.",
+    )
     args = parser.parse_args()
 
     repo_root = Path(__file__).resolve().parents[2]
+    _prepare_run_root(
+        repo_root=repo_root,
+        run_id=args.run_id,
+        overwrite=args.overwrite,
+        backup_existing=args.backup_existing,
+    )
     ctx = RunContext.from_run_id(repo_root=repo_root, run_id=args.run_id)
 
     log_path = ctx.logs_dir / "pipeline.log"
