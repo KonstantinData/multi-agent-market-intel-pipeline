@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import json
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Iterable, List
 
+from src.agent_common.file_utils import write_json_atomic
 from src.registry.entity_registry import Entity, EntityRegistry
 
 
@@ -51,6 +51,5 @@ def export_entities(
 ) -> List[Dict[str, Any]]:
     """Export entity registry into a machine-readable JSON list."""
     exported = [asdict(entity) for entity in _extract_entities(registry)]
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(json.dumps(exported, indent=2), encoding="utf-8")
+    write_json_atomic(output_path, exported)
     return exported
