@@ -41,10 +41,11 @@ class AgentAG42CustomersOfManufacturers(BaseAgent):
             "relations_delta": [],
             "findings": [
                 {
-                    "summary": "AG-42 customers of manufacturers",
+                    "summary": "AG-42 customers of manufacturers (no evidence)",
                     "notes": [
-                        "map customers of identified peer manufacturers",
-                        "capture evidence linking customers to peers",
+                        "no evidence found for downstream customers of peer manufacturers in this run",
+                        "map customers of identified peer manufacturers when evidence is available",
+                        "capture evidence linking customers to peers with sources",
                         "OPEN-AI-KEY configured",
                     ],
                 }
