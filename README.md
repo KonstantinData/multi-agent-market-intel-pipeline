@@ -118,7 +118,6 @@ Every step output must conform to:
 
 - `configs/contracts/*.json`
 - `configs/pipeline/step_contracts.yml`
-- `configs/rules/validator_rules.yml`
 
 A failing step blocks the next step.
 
@@ -362,7 +361,7 @@ Start here:
 
 This repository follows a contract-first development process:
 
-1. Write/update contracts (`configs/contracts/`, `configs/rules/`)
+1. Write/update contracts (`configs/contracts/`)
 2. Implement step logic (`src/agents/`, `src/validator/`, `src/registry/`)
 3. Add/extend tests (`tests/`)
 4. Validate via CI gates

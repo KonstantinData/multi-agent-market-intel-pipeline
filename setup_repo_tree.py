@@ -95,9 +95,6 @@ def create_repo_tree(repo_root: Path) -> None:
         # pipeline configs
         "configs/pipeline/dag.yml",
         "configs/pipeline/step_contracts.yml",
-        "configs/pipeline/retry_policy.yml",
-        "configs/pipeline/output_paths.yml",
-        "configs/pipeline/concurrency_limits.yml",
         # contracts
         "configs/contracts/entity_schema.json",
         "configs/contracts/step_output_schema.json",
@@ -105,12 +102,6 @@ def create_repo_tree(repo_root: Path) -> None:
         "configs/contracts/source_schema.json",
         "configs/contracts/crossref_schema.json",
         "configs/contracts/report_section_schema.json",
-        # rules
-        "configs/rules/id_policy.yml",
-        "configs/rules/normalization_rules.yml",
-        "configs/rules/dedupe_rules.yml",
-        "configs/rules/validator_rules.yml",
-        "configs/rules/ascii_policy.yml",
     ]
     touch_files(repo_root, configs_files)
 
