@@ -99,12 +99,12 @@ def _fetch_pages(domain: str, paths: List[str], timeout_s: float = 10.0) -> List
 def _find_first_matching_line(text: str, patterns: List[re.Pattern]) -> Optional[str]:
     # Deterministic: scan top-to-bottom, return first match line
     for line in text.split("\n"):
-        l = line.strip()
-        if not l:
+        line_text = line.strip()
+        if not line_text:
             continue
         for pat in patterns:
-            if pat.search(l):
-                return l
+            if pat.search(line_text):
+                return line_text
     return None
 
 
@@ -119,11 +119,11 @@ def _extract_registration_signals(text: str) -> str:
     ]
     lines: List[str] = []
     for line in text.split("\n"):
-        l = line.strip()
-        if not l:
+        line_text = line.strip()
+        if not line_text:
             continue
-        if any(t in l for t in tokens):
-            lines.append(l)
+        if any(t in line_text for t in tokens):
+            lines.append(line_text)
         if len(lines) >= 3:
             break
     if not lines:
@@ -282,14 +282,14 @@ def _collect_evidence_lines(pages: List[PageEvidence], max_lines: int = 180) -> 
     urls: List[str] = []
 
     for ev in pages:
-        lines = [(_to_ascii(l).strip()) for l in ev.text.split("\n")]
-        lines = [l for l in lines if l]
+        lines = [(_to_ascii(line_text).strip()) for line_text in ev.text.split("\n")]
+        lines = [line_text for line_text in lines if line_text]
         if not lines:
             continue
 
         hit_idxs: List[int] = []
-        for i, l in enumerate(lines):
-            if keyword_re.search(l):
+        for i, line_text in enumerate(lines):
+            if keyword_re.search(line_text):
                 hit_idxs.append(i)
 
         picked: List[int] = []
@@ -304,10 +304,10 @@ def _collect_evidence_lines(pages: List[PageEvidence], max_lines: int = 180) -> 
         for idx in picked:
             if len(out) >= max_lines:
                 break
-            l = lines[idx]
-            if len(l) > 240:
-                l = l[:240]
-            out.append(f"URL: {ev.url}\nLINE: {l}")
+            line_text = lines[idx]
+            if len(line_text) > 240:
+                line_text = line_text[:240]
+            out.append(f"URL: {ev.url}\nLINE: {line_text}")
             if ev.url:
                 urls.append(ev.url)
 

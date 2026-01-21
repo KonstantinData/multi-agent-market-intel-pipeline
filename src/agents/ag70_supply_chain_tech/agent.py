@@ -127,13 +127,13 @@ def _extract_tech_lines(text: str) -> List[str]:
     ]
     lines: List[str] = []
     for line in text.split("\n"):
-        l = line.strip()
-        if not l:
+        line_text = line.strip()
+        if not line_text:
             continue
-        if len(l) < 40 or len(l) > 260:
+        if len(line_text) < 40 or len(line_text) > 260:
             continue
-        if any(k in l.lower() for k in keywords):
-            lines.append(l)
+        if any(k in line_text.lower() for k in keywords):
+            lines.append(line_text)
         if len(lines) >= 6:
             break
     return lines

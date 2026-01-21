@@ -289,29 +289,29 @@ class AgentAG20CompanySize(BaseAgent):
         for ev in pages:
             contributed = False
             for line in ev.text.split("\n"):
-                l = _to_ascii(line.strip())
-                if not l:
+                line_text = _to_ascii(line.strip())
+                if not line_text:
                     continue
 
-                if re.search(r"\b(employees?|staff|people|team|headcount|revenue|turnover|sales|global|worldwide|international|multinational|national|nationwide|local|regional|emea|apac|americas|europe|asia)\b", l, re.IGNORECASE):
-                    evidence_lines.append(f"URL: {ev.url}\nLINE: {l}")
+                if re.search(r"\b(employees?|staff|people|team|headcount|revenue|turnover|sales|global|worldwide|international|multinational|national|nationwide|local|regional|emea|apac|americas|europe|asia)\b", line_text, re.IGNORECASE):
+                    evidence_lines.append(f"URL: {ev.url}\nLINE: {line_text}")
                     if ev.url:
                         evidence_urls.append(ev.url)
 
                 if employee_range == "n/v":
-                    candidate = _extract_employee_range(l)
+                    candidate = _extract_employee_range(line_text)
                     if candidate:
                         employee_range = candidate
                         contributed = True
 
                 if revenue_band == "n/v":
-                    candidate = _extract_revenue_band(l)
+                    candidate = _extract_revenue_band(line_text)
                     if candidate:
                         revenue_band = candidate
                         contributed = True
 
                 if market_scope_signal == "n/v":
-                    candidate = _extract_market_scope(l)
+                    candidate = _extract_market_scope(line_text)
                     if candidate:
                         market_scope_signal = candidate
                         contributed = True

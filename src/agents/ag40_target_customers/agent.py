@@ -148,11 +148,11 @@ def _extract_customer_names(text: str) -> List[str]:
     ]
     names: List[str] = []
     for line in text.split("\n"):
-        l = line.strip()
-        if not l:
+        line_text = line.strip()
+        if not line_text:
             continue
         for pat in patterns:
-            match = pat.search(l)
+            match = pat.search(line_text)
             if not match:
                 continue
             for name in _split_names(match.group(1)):
