@@ -4,7 +4,6 @@ import json
 import os
 import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import httpx
@@ -17,10 +16,6 @@ from src.agent_common.step_meta import build_step_meta, utc_now_iso
 class PageEvidence:
     url: str
     text: str
-
-
-def _utc_now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 def _to_ascii(text: str) -> str:
@@ -304,7 +299,7 @@ class AgentAG20CompanySize(BaseAgent):
         used_sources: List[Dict[str, str]] = []
         evidence_lines: List[str] = []
         evidence_urls: List[str] = []
-        accessed_at = _utc_now_iso()
+        accessed_at = utc_now_iso()
 
         for ev in pages:
             contributed = False
