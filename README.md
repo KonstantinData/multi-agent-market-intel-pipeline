@@ -136,6 +136,7 @@ Each run produces a deterministic artifact layout for:
 ### Top-level
 
 - `src/`Production code: orchestrator, agents, registry, validator, exporters.
+  - `src/agent_common/` Shared agent utilities (canonical location for shared helpers; do not add `src/agents/common`).
 - `configs/`Versioned pipeline governance:
 
   - DAG definition
