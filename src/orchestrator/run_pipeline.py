@@ -331,16 +331,20 @@ def main() -> None:
 
         completed_steps.add(step_id)
 
+    try:
+        report = build_report(ctx)
+        report_path = ctx.exports_dir / "report.md"
+        report_path.write_text(report, encoding="utf-8")
+        relative_report_path = report_path.relative_to(ctx.run_root)
+        log_line(log_path, f"Report written path={relative_report_path.as_posix()}")
+    except Exception as exc:
+        log_line(log_path, f"PIPELINE STOP (reporting failed: {exc})")
+        raise SystemExit(4) from exc
+
     log_line(
         log_path,
         f"PIPELINE END ({', '.join(pipeline_steps)} completed successfully)",
     )
-
-    report = build_report(ctx)
-    report_path = ctx.exports_dir / "report.md"
-    report_path.write_text(report, encoding="utf-8")
-    relative_report_path = report_path.relative_to(ctx.run_root)
-    log_line(log_path, f"Report written path={relative_report_path.as_posix()}")
 
 
 if __name__ == "__main__":
