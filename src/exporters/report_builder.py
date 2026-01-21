@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List
 
+from src.agent_common.file_utils import write_json_atomic
 from src.exporters.crossref_matrix_exporter import export_crossref_matrix
 from src.exporters.entities_exporter import export_entities
 from src.exporters.index_builder import build_index
@@ -159,8 +160,7 @@ def _collect_evidence(outputs: List[Dict[str, Any]], relations: Iterable[Relatio
 
 
 def _write_json(path: Path, payload: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    write_json_atomic(path, payload)
 
 
 def _write_csv(path: Path, rows: List[Dict[str, Any]], fieldnames: List[str]) -> None:

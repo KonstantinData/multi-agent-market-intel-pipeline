@@ -36,6 +36,7 @@ from src.validator.contract_validator import (
     validate_ag20_output,
     validate_research_output,
 )
+from src.agent_common.file_utils import write_json_atomic, write_text_atomic
 from src.agent_common.step_meta import utc_now_iso
 from src.orchestrator.dag_loader import StepNode, load_dag
 
@@ -95,8 +96,7 @@ def read_case_input(
 
 
 def write_json(path: Path, payload: Dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    write_json_atomic(path, payload)
 
 
 def _log_skipped_steps(
@@ -334,7 +334,7 @@ def main() -> None:
     try:
         report = build_report(ctx)
         report_path = ctx.exports_dir / "report.md"
-        report_path.write_text(report, encoding="utf-8")
+        write_text_atomic(report_path, report)
         relative_report_path = report_path.relative_to(ctx.run_root)
         log_line(log_path, f"Report written path={relative_report_path.as_posix()}")
     except Exception as exc:

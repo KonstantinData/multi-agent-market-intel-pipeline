@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List
 
+from src.agent_common.file_utils import write_json_atomic
 from src.registry.entity_registry import EntityRegistry, Relation
 
 
@@ -49,6 +49,5 @@ def export_crossref_matrix(
 
     rows = _rows_from_relations(relations)
     payload = [asdict(row) for row in rows]
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    write_json_atomic(output_path, payload)
     return payload
