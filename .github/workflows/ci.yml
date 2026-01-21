@@ -41,7 +41,15 @@ jobs:
         run: pytest tests/unit
 
       - name: Integration tests
-        run: pytest tests/integration
+        run: |
+          pytest tests/integration || {
+            code=$?
+            if [ "$code" -eq 5 ]; then
+              echo "No integration tests collected."
+            else
+              exit "$code"
+            fi
+          }
 
       - name: Contract validation
         run: |
