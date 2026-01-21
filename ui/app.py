@@ -11,6 +11,7 @@ from typing import Any, Optional
 
 import streamlit as st
 
+from src.agent_common.env_keys import apply_openai_api_key_compat
 
 # -------------------------
 # Paths
@@ -77,9 +78,6 @@ def _build_subprocess_env() -> dict[str, str]:
     Builds subprocess env by merging:
       - current os.environ
       - REPO_ROOT/.env (only for keys not already present)
-
-    Also mirrors OPEN-AI-KEY -> OPENAI_API_KEY if the latter is missing
-    (keeps OPEN-AI-KEY as primary).
     """
     env = os.environ.copy()
 
@@ -88,9 +86,7 @@ def _build_subprocess_env() -> dict[str, str]:
         if k not in env:
             env[k] = v
 
-    # Compatibility mirror (do not overwrite)
-    if "OPEN-AI-KEY" in env and "OPENAI_API_KEY" not in env:
-        env["OPENAI_API_KEY"] = env["OPEN-AI-KEY"]
+    apply_openai_api_key_compat(env)
 
     return env
 
