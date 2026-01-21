@@ -7,6 +7,7 @@ import sys
 
 
 AGENT_DIR_RE = re.compile(r"^ag\d{2}_.+")
+ALLOWED_NON_AGENT_DIRS = {"__pycache__", "common"}
 
 
 def main() -> int:
@@ -26,7 +27,7 @@ def main() -> int:
         for path in agents_dir.iterdir()
         if path.is_dir()
         and not AGENT_DIR_RE.match(path.name)
-        and path.name != "__pycache__"
+        and path.name not in ALLOWED_NON_AGENT_DIRS
     ]
 
     if invalid:
