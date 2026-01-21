@@ -43,9 +43,9 @@ class AgentAG21FinancialSignals(BaseAgent):
                 {
                     "summary": "AG-21 financial development signals",
                     "notes": [
-                        "collect revenue, funding, and profitability indicators",
-                        "require sourced evidence for each financial claim",
-                        "OPEN-AI-KEY configured",
+                        "No verifiable financial development evidence found (n/v).",
+                        "Use sourced evidence when financial indicators are available.",
+                        "OPEN-AI-KEY configured for future extraction runs.",
                     ],
                 }
             ],
