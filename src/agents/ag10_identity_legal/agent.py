@@ -1,3 +1,28 @@
+"""
+DESCRIPTION
+-----------
+Agent AG-10 (Identity / Legal) extracts evidence-bound legal identity signals AND
+basic contact/location/social discovery signals for the target company.
+
+Why we enrich more fields already in AG-10:
+- Downstream agents can search better if they already have:
+  - structured address signals (street/city/zip)
+  - phone signal
+  - social links (LinkedIn/Facebook/Twitter)
+
+IMPORTANT:
+- This is NOT the CRM export step. HubSpot sync happens at the very end of the full run.
+- Evidence-only policy: if not explicitly present in evidence -> "n/v"
+- Deterministic behavior: stable parsing rules, stable output structure
+- No secret leakage: OPEN-AI-KEY is read from environment only
+
+Output structure (contract-friendly):
+- step_meta
+- entities_delta / relations_delta
+- findings
+- sources / field_sources
+"""
+
 from __future__ import annotations
 
 import json
@@ -14,26 +39,24 @@ from src.agents.common.base_agent import AgentResult, BaseAgent
 from src.agents.common.step_meta import build_step_meta, utc_now_iso
 
 
+# NOTE: Minimal evidence container used to anchor extracted text to its originating URL.
 @dataclass(frozen=True)
 class PageEvidence:
     url: str
     text: str
 
 
+# NOTE: Generates a UTC timestamp in ISO-8601 format (Z suffix) deterministically for metadata fields.
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
+# NOTE: Enforces ASCII-only output by transliterating German characters and stripping remaining non-ASCII chars.
 def _to_ascii(text: str) -> str:
-    """Enforce ASCII-only outputs (policy requirement).
-
-    - Preserves common German characters via transliteration.
-    - Drops all remaining non-ASCII characters deterministically.
-    """
+    """Enforce ASCII-only outputs (policy requirement)."""
     if text is None:
         return ""
     s = str(text)
-    # German transliteration
     s = (
         s.replace("ä", "ae")
         .replace("ö", "oe")
@@ -43,31 +66,24 @@ def _to_ascii(text: str) -> str:
         .replace("Ü", "Ue")
         .replace("ß", "ss")
     )
-    # Remove remaining non-ascii deterministically
     s = s.encode("ascii", errors="ignore").decode("ascii")
     return s
 
 
+# NOTE: Dependency-free HTML-to-text conversion for basic evidence extraction.
 def _strip_html(html: str) -> str:
-    """Very small, dependency-free HTML-to-text extraction."""
-    # Remove scripts/styles
+    """Small, dependency-free HTML-to-text extraction."""
     html = re.sub(r"<script[\s\S]*?</script>", " ", html, flags=re.IGNORECASE)
     html = re.sub(r"<style[\s\S]*?</style>", " ", html, flags=re.IGNORECASE)
-    # Replace breaks with newlines
     html = re.sub(r"<(br|p|div|li|tr|h\d)[^>]*>", "\n", html, flags=re.IGNORECASE)
-    # Drop tags
     text = re.sub(r"<[^>]+>", " ", html)
-    # Decode common entities minimally
-    text = text.replace("&nbsp;", " ")
-    text = text.replace("&amp;", "&")
-    text = text.replace("&lt;", "<")
-    text = text.replace("&gt;", ">")
-    # Normalize whitespace
+    text = text.replace("&nbsp;", " ").replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
     text = re.sub(r"[\t\r ]+", " ", text)
     text = re.sub(r"\n+", "\n", text)
     return text.strip()
 
 
+# NOTE: Fetches HTML pages from well-known paths under the target domain and returns extracted plain-text evidences.
 def _fetch_pages(domain: str, paths: List[str], timeout_s: float = 10.0) -> List[PageEvidence]:
     base_url = f"https://{domain}"
     evidences: List[PageEvidence] = []
@@ -96,8 +112,8 @@ def _fetch_pages(domain: str, paths: List[str], timeout_s: float = 10.0) -> List
     return evidences
 
 
+# NOTE: Scans text line-by-line and returns the first line matching any pattern (deterministic order).
 def _find_first_matching_line(text: str, patterns: List[re.Pattern]) -> Optional[str]:
-    # Deterministic: scan top-to-bottom, return first match line
     for line in text.split("\n"):
         l = line.strip()
         if not l:
@@ -108,15 +124,9 @@ def _find_first_matching_line(text: str, patterns: List[re.Pattern]) -> Optional
     return None
 
 
+# NOTE: Extracts up to 3 registration-related lines from text.
 def _extract_registration_signals(text: str) -> str:
-    tokens = [
-        "Handelsregister",
-        "Commercial Register",
-        "Registergericht",
-        "Amtsgericht",
-        "HRB",
-        "HRA",
-    ]
+    tokens = ["Handelsregister", "Commercial Register", "Registergericht", "Amtsgericht", "HRB", "HRA"]
     lines: List[str] = []
     for line in text.split("\n"):
         l = line.strip()
@@ -126,13 +136,11 @@ def _extract_registration_signals(text: str) -> str:
             lines.append(l)
         if len(lines) >= 3:
             break
-    if not lines:
-        return "n/v"
-    return "; ".join(lines)
+    return "n/v" if not lines else "; ".join(lines)
 
 
+# NOTE: Attempts to extract a founding year using deterministic regex patterns; otherwise returns "n/v".
 def _extract_founding_year(text: str) -> str:
-    # ASCII-only patterns
     patterns = [
         re.compile(r"\bfounded\b\s*(?:in\s*)?(19\d{2}|20\d{2})", re.IGNORECASE),
         re.compile(r"\bestablished\b\s*(?:in\s*)?(19\d{2}|20\d{2})", re.IGNORECASE),
@@ -147,6 +155,7 @@ def _extract_founding_year(text: str) -> str:
     return "n/v"
 
 
+# NOTE: Tries to find plausible legal name and legal form from a line containing known legal-form tokens.
 def _extract_legal_name_and_form(text: str) -> Tuple[str, str]:
     forms_ordered = [
         "GmbH & Co. KG",
@@ -185,27 +194,112 @@ def _extract_legal_name_and_form(text: str) -> Tuple[str, str]:
     return candidate, legal_form
 
 
+# NOTE: Extracts phone number deterministically from common patterns (Tel/Phone).
+def _extract_phone_number(text: str) -> str:
+    phone_markers = ["tel", "telefon", "phone", "mobile", "fax"]
+    for line in text.split("\n"):
+        l = _to_ascii(line).strip()
+        if not l:
+            continue
+        low = l.lower()
+        if any(m in low for m in phone_markers):
+            # simple phone normalization: keep digits, +, spaces, /, -
+            m = re.search(r"(\+?\d[\d\s\/\-()]{6,}\d)", l)
+            if m:
+                cand = m.group(1).strip()
+                if len(cand) > 40:
+                    cand = cand[:40]
+                return cand
+    return "n/v"
+
+
+# NOTE: Extracts postal code + city from German-style patterns: "12345 City".
+def _extract_postal_city(text: str) -> Tuple[str, str]:
+    for line in text.split("\n"):
+        l = _to_ascii(line).strip()
+        if not l:
+            continue
+        m = re.search(r"\b(\d{5})\s+([A-Za-z][A-Za-z \-]{1,40})\b", l)
+        if m:
+            postal = m.group(1).strip()
+            city = m.group(2).strip()
+            if len(city) > 60:
+                city = city[:60]
+            return postal, city
+    return "n/v", "n/v"
+
+
+# NOTE: Extracts a best-effort street line (evidence-only) using common street tokens.
+def _extract_street_address(text: str) -> str:
+    street_tokens = [
+        "strasse", "straße", "street", "st.", "weg", "allee", "platz", "ring", "gasse", "damm",
+    ]
+    for line in text.split("\n"):
+        raw = line.strip()
+        l = _to_ascii(raw).strip()
+        if not l:
+            continue
+        low = l.lower()
+        if any(tok in low for tok in street_tokens):
+            # requires at least one number in the line (house number)
+            if re.search(r"\b\d{1,4}\b", l):
+                if len(l) > 120:
+                    l = l[:120]
+                return l
+    return "n/v"
+
+
+# NOTE: Extracts social URLs/handles deterministically from evidence text (no guessing).
+def _extract_socials(text: str) -> Dict[str, str]:
+    t = _to_ascii(text)
+    facebook = "n/v"
+    linkedin = "n/v"
+    twitter_handle = "n/v"
+    google_plus = "n/v"
+
+    # Facebook URL
+    m = re.search(r"(https?://(www\.)?facebook\.com/[A-Za-z0-9.\-_/]+)", t, re.IGNORECASE)
+    if m:
+        facebook = m.group(1)[:200]
+
+    # LinkedIn company page URL
+    m = re.search(r"(https?://(www\.)?linkedin\.com/company/[A-Za-z0-9.\-_/]+)", t, re.IGNORECASE)
+    if m:
+        linkedin = m.group(1)[:200]
+
+    # Twitter/X: detect handle or URL
+    m = re.search(r"(https?://(www\.)?(twitter\.com|x\.com)/[A-Za-z0-9_]+)", t, re.IGNORECASE)
+    if m:
+        url = m.group(1)[:200]
+        # store as handle if possible
+        hm = re.search(r"/([A-Za-z0-9_]+)$", url)
+        twitter_handle = f"@{hm.group(1)}" if hm else url
+
+    # Google Plus URL (historical)
+    m = re.search(r"(https?://plus\.google\.com/[A-Za-z0-9.\-_/]+)", t, re.IGNORECASE)
+    if m:
+        google_plus = m.group(1)[:200]
+
+    return {
+        "facebook_company_page": facebook,
+        "linkedin_company_page": linkedin,
+        "twitter_handle": twitter_handle,
+        "google_plus_page": google_plus,
+    }
+
+
+# NOTE: Internal guard to avoid re-loading .env multiple times across calls.
 _DOTENV_LOADED = False
 
 
+# NOTE: Minimal .env loader (no dependencies). Loads only if values are not already present in os.environ.
 def _load_dotenv_if_present() -> None:
-    """Load .env into os.environ if present (no dependencies, no secret logging).
-
-    Behavior:
-    - Does not overwrite already-defined environment variables.
-    - Supports lines: KEY=value, export KEY=value, quoted values, comments.
-    - Deterministic: silent no-op on parse errors; never prints secrets.
-    """
     global _DOTENV_LOADED
     if _DOTENV_LOADED:
         return
     _DOTENV_LOADED = True
 
-    candidates: List[Path] = []
-    # CWD first (typical when running from repo root)
-    candidates.append(Path.cwd() / ".env")
-
-    # Walk upwards from this file location, capped
+    candidates: List[Path] = [Path.cwd() / ".env"]
     here = Path(__file__).resolve()
     for i, parent in enumerate(here.parents):
         if i > 8:
@@ -230,7 +324,6 @@ def _load_dotenv_if_present() -> None:
             k = k.strip()
             v = v.strip()
 
-            # strip surrounding quotes
             if len(v) >= 2 and ((v[0] == v[-1] == '"') or (v[0] == v[-1] == "'")):
                 v = v[1:-1]
 
@@ -240,39 +333,32 @@ def _load_dotenv_if_present() -> None:
         return
 
 
+# NOTE: Fetches the OpenAI API key from env; primary required name is OPEN-AI-KEY (fallback: OPENAI_API_KEY).
 def _openai_api_key() -> str:
-    """Primary key location is OPEN-AI-KEY (as required).
-
-    Note: .env is not auto-loaded by Python. We load it here deterministically
-    if the key is not already present in os.environ.
-    """
     key = os.getenv("OPEN-AI-KEY", "").strip() or os.getenv("OPENAI_API_KEY", "").strip()
     if key:
         return key
-
     _load_dotenv_if_present()
     return os.getenv("OPEN-AI-KEY", "").strip() or os.getenv("OPENAI_API_KEY", "").strip()
 
 
+# NOTE: Normalizes text for contains-checks by reducing to lowercase alphanumerics and collapsing whitespace.
 def _normalize_for_contains(s: str) -> str:
     s = (s or "").lower()
     s = re.sub(r"[^a-z0-9]+", " ", s)
     return re.sub(r"\s+", " ", s).strip()
 
 
+# NOTE: Collects compact, URL-anchored evidence lines for deterministic extraction and auditability.
 def _collect_evidence_lines(pages: List[PageEvidence], max_lines: int = 180) -> Tuple[str, List[str]]:
-    """Collect compact, URL-anchored evidence lines for LLM extraction.
-
-    Deterministic selection:
-    - pick keyword lines with +/- 1 line context
-    - cap total evidence lines to max_lines
-    """
     keyword_re = re.compile(
         r"\b("
         r"handelsregister|commercial register|registergericht|amtsgericht|hrb|hra|"
         r"impressum|imprint|legal|terms|register|registration|incorporated|"
         r"founded|established|since|gegruendet|seit|"
-        r"gmbh|ag|ug|kg|ohg|llc|inc\b|ltd\b|limited\b|plc\b|se\b|bv\b|nv\b"
+        r"gmbh|ag|ug|kg|ohg|llc|inc\b|ltd\b|limited\b|plc\b|se\b|bv\b|nv\b|"
+        r"tel|telefon|phone|contact|kontakt|address|adresse|"
+        r"linkedin|facebook|twitter|x\.com|plus\.google\.com"
         r")\b",
         re.IGNORECASE,
     )
@@ -325,8 +411,8 @@ def _collect_evidence_lines(pages: List[PageEvidence], max_lines: int = 180) -> 
     return evidence_text, deduped_urls
 
 
+# NOTE: Calls OpenAI Chat Completions with strict instructions to extract ONLY evidence-bound JSON fields (legal identity).
 def _openai_extract_legal_identity(evidence_text: str, api_key: str, timeout_s: float = 25.0) -> Dict[str, Any]:
-    """Evidence-bound extraction of legal identity using OpenAI Chat Completions."""
     user_content = evidence_text.strip() or "NO_EVIDENCE"
 
     payload = {
@@ -358,12 +444,7 @@ def _openai_extract_legal_identity(evidence_text: str, api_key: str, timeout_s: 
         resp.raise_for_status()
         data = resp.json()
 
-    content = (
-        data.get("choices", [{}])[0]
-        .get("message", {})
-        .get("content", "")
-        .strip()
-    )
+    content = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
     if not content:
         raise ValueError("empty OpenAI response")
 
@@ -378,8 +459,8 @@ def _openai_extract_legal_identity(evidence_text: str, api_key: str, timeout_s: 
     return parsed
 
 
+# NOTE: Sanitizes LLM outputs by verifying that extracted values are explicitly contained in evidence text.
 def _sanitize_llm_outputs(parsed: Dict[str, Any], evidence_text: str) -> Tuple[str, str, str, str]:
-    """Enforce evidence-boundedness and validator compatibility."""
     ev_norm = _normalize_for_contains(evidence_text)
 
     raw_legal_name = _to_ascii(str(parsed.get("legal_name", "n/v"))).strip() or "n/v"
@@ -387,13 +468,11 @@ def _sanitize_llm_outputs(parsed: Dict[str, Any], evidence_text: str) -> Tuple[s
     raw_founding_year = _to_ascii(str(parsed.get("founding_year", "n/v"))).strip() or "n/v"
     raw_registration = _to_ascii(str(parsed.get("registration_signals", "n/v"))).strip() or "n/v"
 
-    if raw_legal_name != "n/v":
-        if _normalize_for_contains(raw_legal_name) not in ev_norm:
-            raw_legal_name = "n/v"
+    if raw_legal_name != "n/v" and _normalize_for_contains(raw_legal_name) not in ev_norm:
+        raw_legal_name = "n/v"
 
-    if raw_legal_form != "n/v":
-        if _normalize_for_contains(raw_legal_form) not in ev_norm:
-            raw_legal_form = "n/v"
+    if raw_legal_form != "n/v" and _normalize_for_contains(raw_legal_form) not in ev_norm:
+        raw_legal_form = "n/v"
 
     if raw_founding_year != "n/v":
         m = re.search(r"\b(18\d{2}|19\d{2}|20\d{2})\b", raw_founding_year)
@@ -404,28 +483,12 @@ def _sanitize_llm_outputs(parsed: Dict[str, Any], evidence_text: str) -> Tuple[s
             raw_founding_year = year
 
     if raw_registration != "n/v":
-        markers = (
-            "handelsregister",
-            "commercial register",
-            "registergericht",
-            "amtsgericht",
-            "hrb",
-            "hra",
-        )
+        markers = ("handelsregister", "commercial register", "registergericht", "amtsgericht", "hrb", "hra")
         lowered = raw_registration.lower()
         if not any(marker in lowered for marker in markers):
             raw_registration = "n/v"
-        else:
-            digit_tokens = re.findall(r"\b(?:hrb|hra)?\s*\d{2,}\b", lowered)
-            for tok in digit_tokens:
-                tok_norm = _normalize_for_contains(tok)
-                if tok_norm and tok_norm not in ev_norm:
-                    raw_registration = "n/v"
-                    break
-
-        if raw_registration != "n/v":
-            if _normalize_for_contains(raw_registration) not in ev_norm:
-                raw_registration = "n/v"
+        if raw_registration != "n/v" and _normalize_for_contains(raw_registration) not in ev_norm:
+            raw_registration = "n/v"
 
     if raw_legal_name != "n/v" and len(raw_legal_name) > 160:
         raw_legal_name = raw_legal_name[:160]
@@ -435,6 +498,7 @@ def _sanitize_llm_outputs(parsed: Dict[str, Any], evidence_text: str) -> Tuple[s
     return raw_legal_name, raw_legal_form, raw_founding_year, raw_registration
 
 
+# NOTE: De-duplicates sources deterministically by URL (first-seen wins).
 def _dedupe_sources(sources: List[Dict[str, str]]) -> List[Dict[str, str]]:
     seen = set()
     deduped: List[Dict[str, str]] = []
@@ -447,30 +511,25 @@ def _dedupe_sources(sources: List[Dict[str, str]]) -> List[Dict[str, str]]:
     return deduped
 
 
-def _build_field_sources(
-    legal_name: Any,
-    legal_form: Any,
-    founding_year: Any,
-    registration_signals: Any,
-    evidence_urls: List[str],
-) -> Dict[str, List[Dict[str, str]]]:
+# NOTE: Builds per-field source mapping so validators and exporters can attribute values to URLs.
+def _build_field_sources(values: Dict[str, Any], evidence_urls: List[str]) -> Dict[str, List[Dict[str, str]]]:
     def _sources_for(value: Any) -> List[Dict[str, str]]:
         if value in (None, "", "n/v"):
             return []
         return [{"url": url} for url in evidence_urls if url]
 
-    return {
-        "legal_name": _sources_for(legal_name),
-        "legal_form": _sources_for(legal_form),
-        "founding_year": _sources_for(founding_year),
-        "registration_signals": _sources_for(registration_signals),
-    }
+    out: Dict[str, List[Dict[str, str]]] = {}
+    for k, v in values.items():
+        out[k] = _sources_for(v)
+    return out
 
 
+# NOTE: AG-10 agent implementation; produces entities_delta enrichment for legal identity + contact/social signals.
 class AgentAG10IdentityLegal(BaseAgent):
     step_id = "AG-10"
     agent_name = "ag10_identity_legal"
 
+    # NOTE: Executes the AG-10 step using normalized case metadata, evidence extraction, and strict parsing.
     def run(
         self,
         case_input: Dict[str, Any],
@@ -489,9 +548,7 @@ class AgentAG10IdentityLegal(BaseAgent):
         if not api_key:
             return AgentResult(
                 ok=False,
-                output={
-                    "error": "missing OPEN-AI-KEY in environment (.env) - AG-10 requires LLM access",
-                },
+                output={"error": "missing OPEN-AI-KEY in environment (.env) - AG-10 requires LLM access"},
             )
 
         candidate_paths = [
@@ -508,6 +565,7 @@ class AgentAG10IdentityLegal(BaseAgent):
         pages = _fetch_pages(domain=domain, paths=candidate_paths)
         evidence_text, evidence_urls = _collect_evidence_lines(pages)
 
+        # --- Legal extraction via OpenAI (evidence-bound) ---
         try:
             parsed = _openai_extract_legal_identity(evidence_text=evidence_text, api_key=api_key)
         except Exception as e:
@@ -518,6 +576,7 @@ class AgentAG10IdentityLegal(BaseAgent):
             evidence_text=evidence_text,
         )
 
+        # --- Deterministic fallbacks from raw evidence text if LLM returns n/v ---
         if pages and (legal_name == "n/v" or legal_form == "n/v"):
             for ev in pages:
                 ln, lf = _extract_legal_name_and_form(ev.text)
@@ -551,23 +610,40 @@ class AgentAG10IdentityLegal(BaseAgent):
         else:
             founding_year = "n/v"
 
-        legal_fields = [legal_name, legal_form, founding_year, registration_signals]
-        has_claim = any(v not in (None, "", "n/v") for v in legal_fields)
+        # --- NEW: contact/location/social extraction (deterministic, evidence-only) ---
+        full_text = "\n".join([p.text for p in pages]) if pages else ""
+        street_address = _extract_street_address(full_text)
+        postal_code, city = _extract_postal_city(full_text)
+        phone_number = _extract_phone_number(full_text)
+        socials = _extract_socials(full_text)
+
+        # Fields typically not reliably extractable in AG-10 without dedicated research steps
+        state_region = "n/v"
+        parent_company_id = "n/v"
+        industry = "n/v"
+        description = "n/v"
+
+        # If we produce any claimed fields, ensure we have at least one evidence URL anchor.
+        claimed_values = [
+            legal_name, legal_form, founding_year, registration_signals,
+            street_address, city, postal_code, phone_number,
+            socials.get("facebook_company_page", "n/v"),
+            socials.get("linkedin_company_page", "n/v"),
+            socials.get("twitter_handle", "n/v"),
+            socials.get("google_plus_page", "n/v"),
+        ]
+        has_claim = any(v not in (None, "", "n/v") for v in claimed_values)
 
         accessed_at = _utc_now_iso()
         if has_claim and not evidence_urls:
             evidence_urls = [f"https://{domain}/"]
+
         used_sources: List[Dict[str, str]] = []
         if has_claim:
             for url in evidence_urls:
-                used_sources.append(
-                    {
-                        "publisher": company_name,
-                        "url": url,
-                        "accessed_at_utc": accessed_at,
-                    }
-                )
+                used_sources.append({"publisher": company_name, "url": url, "accessed_at_utc": accessed_at})
 
+        # --- Entity enrichment for downstream agents (NOT CRM export) ---
         entity_update = {
             "entity_id": "TGT-001",
             "entity_type": "target_company",
@@ -578,20 +654,55 @@ class AgentAG10IdentityLegal(BaseAgent):
             "legal_form": legal_form,
             "founding_year": founding_year,
             "registration_signals": registration_signals,
-        }
-        field_sources = _build_field_sources(
-            legal_name=legal_name,
-            legal_form=legal_form,
-            founding_year=founding_year,
-            registration_signals=registration_signals,
-            evidence_urls=evidence_urls,
-        )
 
+            # NEW: contact/location (downstream search helper fields)
+            "street_address": street_address,
+            "city": city,
+            "postal_code": postal_code,
+            "state_region": state_region,
+            "phone_number": phone_number,
+
+            # NEW: corporate parent pointer (not evidence-extracted here)
+            "parent_company_id": parent_company_id,
+
+            # NEW: industry/description baseline placeholders (to be filled in later steps)
+            "industry": industry,
+            "description": description,
+
+            # NEW: socials
+            "facebook_company_page": socials.get("facebook_company_page", "n/v"),
+            "google_plus_page": socials.get("google_plus_page", "n/v"),
+            "linkedin_company_page": socials.get("linkedin_company_page", "n/v"),
+            "twitter_handle": socials.get("twitter_handle", "n/v"),
+        }
+
+        # --- Field sources for auditability ---
+        field_source_values = {
+            "legal_name": legal_name,
+            "legal_form": legal_form,
+            "founding_year": founding_year,
+            "registration_signals": registration_signals,
+            "street_address": street_address,
+            "city": city,
+            "postal_code": postal_code,
+            "state_region": state_region,
+            "phone_number": phone_number,
+            "parent_company_id": parent_company_id,
+            "industry": industry,
+            "description": description,
+            "facebook_company_page": socials.get("facebook_company_page", "n/v"),
+            "google_plus_page": socials.get("google_plus_page", "n/v"),
+            "linkedin_company_page": socials.get("linkedin_company_page", "n/v"),
+            "twitter_handle": socials.get("twitter_handle", "n/v"),
+        }
+        field_sources = _build_field_sources(values=field_source_values, evidence_urls=evidence_urls)
+
+        # --- Findings summary ---
         notes: List[str] = []
         if not has_claim:
-            notes.append("No verifiable legal identity evidence found (n/v).")
+            notes.append("No verifiable identity/contact evidence found (n/v).")
         else:
-            notes.append("Legal identity fields extracted from publicly available pages.")
+            notes.append("Legal identity and contact/social signals extracted from publicly available pages.")
 
         finished_at_utc = utc_now_iso()
 
@@ -605,14 +716,13 @@ class AgentAG10IdentityLegal(BaseAgent):
             ),
             "entities_delta": [entity_update],
             "relations_delta": [],
-            "findings": [
-                {
-                    "summary": "Identity and legal signals extracted",
-                    "notes": notes,
-                }
-            ],
+            "findings": [{"summary": "Identity/legal + contact/social signals extracted", "notes": notes}],
             "sources": _dedupe_sources(used_sources),
             "field_sources": field_sources,
         }
 
         return AgentResult(ok=True, output=output)
+
+
+# NOTE: Wiring-safe alias for dynamic loaders expecting `Agent` symbol in this module.
+Agent = AgentAG10IdentityLegal
