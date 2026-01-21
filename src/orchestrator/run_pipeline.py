@@ -37,6 +37,27 @@ from src.validator.contract_validator import (
 )
 from src.agent_common.step_meta import utc_now_iso
 
+PIPELINE_STEP_ORDER = [
+    "AG-00",
+    "AG-01",
+    "AG-10",
+    "AG-11",
+    "AG-20",
+    "AG-21",
+    "AG-30",
+    "AG-31",
+    "AG-40",
+    "AG-41",
+    "AG-42",
+    "AG-70",
+    "AG-71",
+    "AG-72",
+    "AG-81",
+    "AG-82",
+    "AG-83",
+    "AG-90",
+]
+
 
 def read_case_input(case_file: str) -> Dict[str, Any]:
     p = Path(case_file)
@@ -46,6 +67,19 @@ def read_case_input(case_file: str) -> Dict[str, Any]:
 def write_json(path: Path, payload: Dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+
+def _log_skipped_steps(log_path: Path, failed_step_id: str) -> None:
+    if failed_step_id not in PIPELINE_STEP_ORDER:
+        return
+
+    failed_index = PIPELINE_STEP_ORDER.index(failed_step_id)
+    remaining_steps = PIPELINE_STEP_ORDER[failed_index + 1 :]
+    if not remaining_steps:
+        return
+
+    for step_id in remaining_steps:
+        log_line(log_path, f"Skipping {step_id} due to {failed_step_id} gatekeeper failure")
 
 
 def _require_step_meta(output_payload: Dict[str, Any], step_id: str, log_path: Path) -> Dict[str, Any]:
@@ -167,6 +201,7 @@ def main() -> None:
 
     if not vr.ok:
         log_line(log_path, "PIPELINE STOP (contract validation failed)")
+        _log_skipped_steps(log_path, "AG-00")
         raise SystemExit(3)
 
     # Write meta artifact for downstream steps
@@ -213,6 +248,7 @@ def main() -> None:
 
     if not vr01.ok:
         log_line(log_path, "PIPELINE STOP (AG-01 contract validation failed)")
+        _log_skipped_steps(log_path, "AG-01")
         raise SystemExit(3)
 
     # --- Step: AG-10 ---
@@ -260,6 +296,7 @@ def main() -> None:
 
     if not vr10.ok:
         log_line(log_path, "PIPELINE STOP (AG-10 contract validation failed)")
+        _log_skipped_steps(log_path, "AG-10")
         raise SystemExit(3)
 
     # --- Step: AG-11 ---
@@ -302,6 +339,7 @@ def main() -> None:
 
     if not vr11.ok:
         log_line(log_path, "PIPELINE STOP (AG-11 contract validation failed)")
+        _log_skipped_steps(log_path, "AG-11")
         raise SystemExit(3)
 
     # --- Step: AG-20 ---
@@ -349,6 +387,7 @@ def main() -> None:
 
     if not vr20.ok:
         log_line(log_path, "PIPELINE STOP (AG-20 contract validation failed)")
+        _log_skipped_steps(log_path, "AG-20")
         raise SystemExit(3)
 
     # --- Step: AG-21 ---
@@ -384,6 +423,7 @@ def main() -> None:
 
     if not vr21.ok:
         log_line(log_path, "PIPELINE STOP (AG-21 contract validation failed)")
+        _log_skipped_steps(log_path, "AG-21")
         raise SystemExit(3)
 
     # --- Step: AG-30 ---
@@ -419,6 +459,7 @@ def main() -> None:
 
     if not vr30.ok:
         log_line(log_path, "PIPELINE STOP (AG-30 contract validation failed)")
+        _log_skipped_steps(log_path, "AG-30")
         raise SystemExit(3)
 
     # --- Step: AG-31 ---
@@ -454,6 +495,7 @@ def main() -> None:
 
     if not vr31.ok:
         log_line(log_path, "PIPELINE STOP (AG-31 contract validation failed)")
+        _log_skipped_steps(log_path, "AG-31")
         raise SystemExit(3)
 
     # --- Step: AG-40 ---
@@ -489,6 +531,7 @@ def main() -> None:
 
     if not vr40.ok:
         log_line(log_path, "PIPELINE STOP (AG-40 contract validation failed)")
+        _log_skipped_steps(log_path, "AG-40")
         raise SystemExit(3)
 
     # --- Step: AG-41 ---
@@ -524,6 +567,7 @@ def main() -> None:
 
     if not vr41.ok:
         log_line(log_path, "PIPELINE STOP (AG-41 contract validation failed)")
+        _log_skipped_steps(log_path, "AG-41")
         raise SystemExit(3)
 
     # --- Step: AG-42 ---
@@ -559,6 +603,7 @@ def main() -> None:
 
     if not vr42.ok:
         log_line(log_path, "PIPELINE STOP (AG-42 contract validation failed)")
+        _log_skipped_steps(log_path, "AG-42")
         raise SystemExit(3)
 
     # --- Step: AG-70 ---
@@ -594,6 +639,7 @@ def main() -> None:
 
     if not vr70.ok:
         log_line(log_path, "PIPELINE STOP (AG-70 contract validation failed)")
+        _log_skipped_steps(log_path, "AG-70")
         raise SystemExit(3)
 
     # --- Step: AG-71 ---
@@ -629,6 +675,7 @@ def main() -> None:
 
     if not vr71.ok:
         log_line(log_path, "PIPELINE STOP (AG-71 contract validation failed)")
+        _log_skipped_steps(log_path, "AG-71")
         raise SystemExit(3)
 
     # --- Step: AG-72 ---
@@ -664,6 +711,7 @@ def main() -> None:
 
     if not vr72.ok:
         log_line(log_path, "PIPELINE STOP (AG-72 contract validation failed)")
+        _log_skipped_steps(log_path, "AG-72")
         raise SystemExit(3)
 
     # --- Step: AG-81 ---
@@ -699,6 +747,7 @@ def main() -> None:
 
     if not vr81.ok:
         log_line(log_path, "PIPELINE STOP (AG-81 contract validation failed)")
+        _log_skipped_steps(log_path, "AG-81")
         raise SystemExit(3)
 
     # --- Step: AG-82 ---
@@ -734,6 +783,7 @@ def main() -> None:
 
     if not vr82.ok:
         log_line(log_path, "PIPELINE STOP (AG-82 contract validation failed)")
+        _log_skipped_steps(log_path, "AG-82")
         raise SystemExit(3)
 
     # --- Step: AG-83 ---
@@ -769,6 +819,7 @@ def main() -> None:
 
     if not vr83.ok:
         log_line(log_path, "PIPELINE STOP (AG-83 contract validation failed)")
+        _log_skipped_steps(log_path, "AG-83")
         raise SystemExit(3)
 
     # --- Step: AG-90 ---
@@ -804,6 +855,7 @@ def main() -> None:
 
     if not vr90.ok:
         log_line(log_path, "PIPELINE STOP (AG-90 contract validation failed)")
+        _log_skipped_steps(log_path, "AG-90")
         raise SystemExit(3)
 
     log_line(
