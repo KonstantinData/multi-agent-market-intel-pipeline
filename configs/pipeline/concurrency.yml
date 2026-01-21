@@ -1,0 +1,6 @@
+# Concurrency and retry policy configuration.
+# max_concurrent_steps: maximum number of steps that may run in parallel.
+# max_retries: number of retries on transient failures (e.g., network errors).
+max_concurrent_steps: 1
+max_retries: 2
+backoff_seconds: 5

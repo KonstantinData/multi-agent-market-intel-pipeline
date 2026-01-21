@@ -1,0 +1,125 @@
+{
+  "generated_at_utc": "2026-01-21T19:45:58.614924Z",
+  "files": [
+    {
+      "path": ".github/workflows/ci.yml",
+      "sha256": "9495e535aec731258b53ef760b1272fec73fda71c8afae0521707d618c6c908c",
+      "bytes": 670
+    },
+    {
+      "path": "CHANGELOG.md",
+      "sha256": "13ef618328411efc1237f8cf379970bce595faad1c4a9aebd9b8d32ff9543f3a",
+      "bytes": 135
+    },
+    {
+      "path": "MANIFEST.json",
+      "sha256": "2c3674b17ed39b7cb1f36ea85e8713af44ccb72f1b0d979bf344c4d7ab2c6f22",
+      "bytes": 735
+    },
+    {
+      "path": "VERIFY.md",
+      "sha256": "aa0c8605ac0631f67360e7ed5ca1eadb85a395fd8de554469f5ce1cc4ecb12ef",
+      "bytes": 374
+    },
+    {
+      "path": "apply_patch.ps1",
+      "sha256": "ec1ab25e2d5f0464f1ce01002b6bd72b1bd3fda230228d0b3196ee9484068056",
+      "bytes": 1047
+    },
+    {
+      "path": "apply_patch.sh",
+      "sha256": "be706946041ce3766df08bad6ba5f5de605c68565039c15271984f8e31c3866e",
+      "bytes": 829
+    },
+    {
+      "path": "build_zip.py",
+      "sha256": "7622fd2e5d7ddef44618a09176801c093998cd08203c19911fe3099283ce04a5",
+      "bytes": 1425
+    },
+    {
+      "path": "configs/pipeline/concurrency.yml",
+      "sha256": "a2c0d156deb2bb3da3d88c2016ede7b24408903b876ceabb45ec1ee8105475a4",
+      "bytes": 256
+    },
+    {
+      "path": "configs/pipeline/dag.yml",
+      "sha256": "839ab431669d2ee29deba9b8baa9aa7b3583daa5267b088d88575635308adeb9",
+      "bytes": 289
+    },
+    {
+      "path": "configs/pipeline/id_policy.yml",
+      "sha256": "3447a067c9b07b7c9957177f80510e7e7515daf122218f59074a8d5d8eeeab09",
+      "bytes": 206
+    },
+    {
+      "path": "docs/known_limitations.md",
+      "sha256": "e52450665b4719f09faf854dab2b60e6c41f48e2dd60cf3749e2410b3ce0c610",
+      "bytes": 1600
+    },
+    {
+      "path": "gate_report.md",
+      "sha256": "757134e0c5c3f3418ae8e453e47a90dc5e8b9eb67dc9928f6e5da8bc799bd0d1",
+      "bytes": 16537
+    },
+    {
+      "path": "inventory_report.md",
+      "sha256": "ade3d7f03a24935afba2b57fbb5f930a1cd8193468d77b4028cffa3de3381b33",
+      "bytes": 17054
+    },
+    {
+      "path": "patch_pack.md",
+      "sha256": "5febfef3c1225c9ab365dc27235178f521861ccd0bbbbace319e32772495ecf8",
+      "bytes": 31102
+    },
+    {
+      "path": "scripts/verify_dod.py",
+      "sha256": "ca7f0228ea4ee2fe5d474332a3239b1c3dd15e5eca85dd269e0dbf38f1ebf542",
+      "bytes": 1437
+    },
+    {
+      "path": "src/agents/common/baseline_agent.py",
+      "sha256": "79855a6ed821173e7ef9410021fb6c2186162b3f02dff58c9881a8e3cd082662",
+      "bytes": 2145
+    },
+    {
+      "path": "src/exporters/entities_exporter.py",
+      "sha256": "4ae44fcca31b6286dd86f79bf5a3d32118cb150d31a6b1311b2151ac93162d41",
+      "bytes": 1025
+    },
+    {
+      "path": "src/exporters/report_builder.py",
+      "sha256": "4ff52a2165385fad2bdf42166196d86a38a6a9c8f3f802241c7dfacadd019841",
+      "bytes": 1663
+    },
+    {
+      "path": "src/orchestrator/run_pipeline.py",
+      "sha256": "a47a7fdcbb2be98f5f2d7b98eab8bc693fdbe7647a96eb4bc3accc0a53933e3a",
+      "bytes": 3818
+    },
+    {
+      "path": "src/orchestrator/step_registry.py",
+      "sha256": "4e0453184417fccdb7927e8becae6450edb10dc5e3eda5ea146bc48c3265661a",
+      "bytes": 2370
+    },
+    {
+      "path": "src/registry/entity_registry.py",
+      "sha256": "a67d3acb8dc3cec9d8753ade6da0858326505c5f6890617c9ae2353ec275358b",
+      "bytes": 2773
+    },
+    {
+      "path": "tests/test_baseline_agents.py",
+      "sha256": "8715330d9c9e89ce2fc15878ff19af5dbe2ebdd7845d47be6de0a1b8a6342417",
+      "bytes": 1376
+    },
+    {
+      "path": "tests/test_pipeline_e2e.py",
+      "sha256": "56f3821c6bd46aa2e3372d6314b3a27ac57ede276f662ca1a7012403424a4c3a",
+      "bytes": 861
+    },
+    {
+      "path": "verification_table.md",
+      "sha256": "391c6aa35200f26c50853bcddf4b6b2e1df2cc55a181f87c0ef19f8a1561e474",
+      "bytes": 4247
+    }
+  ]
+}

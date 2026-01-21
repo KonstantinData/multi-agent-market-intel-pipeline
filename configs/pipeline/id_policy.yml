@@ -1,0 +1,7 @@
+# ID generation policy for the entity registry.
+# key_fields: list of entity attributes used to derive a deterministic key
+# prefix: prefix for generated entity IDs
+key_fields:
+  - type
+  - name
+prefix: ENT

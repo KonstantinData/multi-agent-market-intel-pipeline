@@ -1,11 +1,23 @@
-dag:
-  - step_id: "AG-00"
-    depends_on: []
-
-  - step_id: "AG-01"
-    depends_on:
-      - "AG-00"
-
-  - step_id: "AG-10"
-    depends_on:
-      - "AG-01"
+# Execution order for pipeline steps.
+# Each entry corresponds to a step ID defined in src/orchestrator/step_registry.py.
+- AG-00
+- AG-01
+- AG-10
+- AG-11
+- AG-20
+- AG-21
+- AG-30
+- AG-31
+- AG-40
+- AG-42
+- AG-50
+- AG-51
+- AG-60
+- AG-61
+- AG-70
+- AG-71
+- AG-72
+- AG-80
+- AG-81
+- AG-83
+- AG-90
