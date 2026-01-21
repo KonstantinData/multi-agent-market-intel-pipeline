@@ -44,7 +44,7 @@ from src.validator.contract_validator import (
     validate_research_output,
 )
 from src.agent_common.file_utils import write_json_atomic, write_text_atomic
-from src.agent_common.step_meta import utc_now_iso
+from src.agent_common.step_meta import _resolve_repo_git_sha, utc_now_iso
 from src.orchestrator.dag_loader import StepNode, load_dag
 
 STEP_AGENT_REGISTRY = {
@@ -78,6 +78,9 @@ def _resolve_pipeline_version(
         pipeline_version_override,
         os.getenv("PIPELINE_VERSION"),
         case_input.get("pipeline_version"),
+        case_input.get("git_sha"),
+        os.getenv("GIT_SHA"),
+        _resolve_repo_git_sha(),
     )
     for candidate in candidates:
         if isinstance(candidate, str) and candidate.strip():
