@@ -867,7 +867,8 @@ def main() -> None:
     report = build_report(ctx)
     report_path = ctx.exports_dir / "report.md"
     report_path.write_text(report, encoding="utf-8")
-    log_line(log_path, f"Report written path={report_path}")
+    relative_report_path = report_path.relative_to(ctx.run_root)
+    log_line(log_path, f"Report written path={relative_report_path.as_posix()}")
 
 
 if __name__ == "__main__":
