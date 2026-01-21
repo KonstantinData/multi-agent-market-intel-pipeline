@@ -41,10 +41,10 @@ class AgentAG41PeerDiscovery(BaseAgent):
             "relations_delta": [],
             "findings": [
                 {
-                    "summary": "AG-41 peer discovery",
+                    "summary": "AG-41 peer discovery (no evidence)",
                     "notes": [
-                        "identify peer or competitor manufacturers",
-                        "use product or capability overlap as rationale",
+                        "no evidence found for peer or competitor manufacturers in this run",
+                        "use product or capability overlap as rationale when evidence is available",
                         "OPEN-AI-KEY configured",
                     ],
                 }
