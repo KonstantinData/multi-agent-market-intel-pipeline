@@ -10,6 +10,12 @@ from typing import Any, Dict, List, Optional, Tuple
 import httpx
 
 from src.agent_common.base_agent import AgentResult, BaseAgent
+from src.agent_common.env_keys import (
+    CANONICAL_OPENAI_API_KEY,
+    LEGACY_OPENAI_API_KEYS,
+    apply_openai_api_key_compat,
+    resolve_openai_api_key,
+)
 from src.agent_common.step_meta import build_step_meta, utc_now_iso
 
 
@@ -188,10 +194,10 @@ _DOTENV_LOADED = False
 
 
 def _load_dotenv_if_present() -> None:
-    """Load OPENAI_KEY from .env into os.environ if present (no dependencies, no secret logging).
+    """Load OpenAI API key vars from .env into os.environ (no deps, no secret logging).
 
     Behavior:
-    - Only loads OPENAI_KEY (ignores all other keys).
+    - Only loads OpenAI API key vars (ignores all other keys).
     - Does not overwrite already-defined environment variables.
     - Supports lines: KEY=value, export KEY=value, quoted values, comments.
     - Deterministic: silent no-op on parse errors; never prints secrets.
@@ -236,26 +242,25 @@ def _load_dotenv_if_present() -> None:
             if len(v) >= 2 and ((v[0] == v[-1] == '"') or (v[0] == v[-1] == "'")):
                 v = v[1:-1]
 
-            if k == "OPENAI_KEY" and k not in os.environ:
+            if (
+                k in {CANONICAL_OPENAI_API_KEY, *LEGACY_OPENAI_API_KEYS}
+                and k not in os.environ
+            ):
                 os.environ[k] = v
     except Exception:
         return
 
+    apply_openai_api_key_compat(os.environ)
+
 
 def _openai_api_key() -> str:
-    """Primary key location is OPENAI_KEY (as required).
-
-    Note: .env is not auto-loaded by Python. We load it here deterministically
-    if the key is not already present in os.environ.
-    """
-    key = os.getenv("OPENAI_KEY", "").strip() or os.getenv("OPENAI_API_KEY", "").strip()
+    """Resolve OpenAI API key from env or .env using the canonical name."""
+    key = resolve_openai_api_key()
     if key:
         return key
 
     _load_dotenv_if_present()
-    return (
-        os.getenv("OPENAI_KEY", "").strip() or os.getenv("OPENAI_API_KEY", "").strip()
-    )
+    return resolve_openai_api_key()
 
 
 def _normalize_for_contains(s: str) -> str:

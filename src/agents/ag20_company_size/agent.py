@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import os
 import re
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
@@ -9,6 +8,7 @@ from typing import Any, Dict, List, Optional
 import httpx
 
 from src.agent_common.base_agent import AgentResult, BaseAgent
+from src.agent_common.env_keys import resolve_openai_api_key
 from src.agent_common.step_meta import build_step_meta, utc_now_iso
 
 
@@ -192,9 +192,7 @@ def _dedupe_sources(sources: List[Dict[str, str]]) -> List[Dict[str, str]]:
 
 
 def _openai_api_key() -> str:
-    return (
-        os.getenv("OPENAI_KEY", "").strip() or os.getenv("OPENAI_API_KEY", "").strip()
-    )
+    return resolve_openai_api_key()
 
 
 def _openai_extract_signals(
