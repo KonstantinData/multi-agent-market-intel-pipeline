@@ -35,22 +35,39 @@ The system is designed to run **parallel domain agents (Fan-Out)** while preserv
 
 ### High-level workflow
 
-The pipeline runs as a **DAG** with explicit parallel batches and merge barriers:
+The pipeline runs as a **DAG** defined in `configs/pipeline/dag.yml`. The current
+implementation executes a single linear sequence of steps (no parallel fan-out
+in the orchestrator yet):
 
-1. **Intake normalization** (clean and normalize the case input)
-2. **Parallel domain research agents** (Fan-Out)
-3. **Output contract validation** after each step (Gatekeeper)
-4. **Central entity registry merge** (Fan-In barrier)
-5. **Downstream mapping steps** (peers -> customers-of-peers)
-6. **Final exports** (report, entities, index, cross-reference matrix)
+1. **AG-00** Intake normalization
+2. **AG-01** Source registry
+3. **AG-10** Identity and legal
+4. **AG-11** Locations and sites
+5. **AG-20** Company size
+6. **AG-21** Financial signals
+7. **AG-30** Portfolio
+8. **AG-31** Markets focus
+9. **AG-40** Target customers
+10. **AG-41** Peer discovery
+11. **AG-42** Customers of manufacturers
+12. **AG-70** Supply chain technology
+13. **AG-71** Supply chain risks
+14. **AG-72** Sustainability and circularity
+15. **AG-81** Industry trends
+16. **AG-82** Trade fairs and events
+17. **AG-83** Associations and memberships
+18. **AG-90** Sales playbook
+
+Each step runs only after its dependency completes and passes contract
+validation.
 
 ### Key subsystems
 
 - **Orchestrator (`src/orchestrator/`)**
 
   - DAG loading and resolution
-  - parallel scheduling and execution
-  - barrier and merge coordination
+  - sequential scheduling and execution (current implementation)
+  - contract gatekeeper enforcement
   - retry/abort handling based on error types
   - artifact writing (atomic writes)
 - **Domain Agents (`src/agents/`)**
@@ -73,9 +90,9 @@ The pipeline runs as a **DAG** with explicit parallel batches and merge barriers
 - **Exporters (`src/exporters/`)**
 
   - Markdown report builder (`report.md`)
-  - entity export (`entities.json`)
-  - index export (`index.json`)
-  - cross-reference matrix export
+  - entity export (`entities.json`, `entities.csv`)
+  - relations/cross-reference export (`relations.json`, `relations.csv`)
+  - index export (`index.json`, `index.csv`)
 
 ---
 
@@ -163,7 +180,7 @@ Each run produces a deterministic artifact layout for:
 Each pipeline execution produces a run directory like:
 
 ```text
-runs/<run_id>/
+artifacts/runs/<run_id>/
   meta/
     run_meta.json
     dag_resolved.json
@@ -183,8 +200,11 @@ runs/<run_id>/
   exports/
     report.md
     entities.json
+    entities.csv
+    relations.json
+    relations.csv
     index.json
-    crossref_matrix.json
+    index.csv
 
   logs/
     pipeline.log
@@ -239,33 +259,58 @@ pip install -r requirements-dev.txt
 The orchestration entrypoint is:
 
 ```bash
-python -m src.orchestrator.run_pipeline
+python -m src.orchestrator.run_pipeline \
+  --run-id <run_id> \
+  --case-file <path/to/case.json> \
+  --pipeline-version <git_sha_or_semver>
 ```
+
+Run flags:
+
+- `--run-id` (required): ID used for the artifacts directory under `artifacts/runs/`.
+- `--case-file` (required): Path to the case input JSON.
+- `--pipeline-version` (optional): Overrides the pipeline version in the case file or
+  `PIPELINE_VERSION`. Required one way or another.
+- `--overwrite`: Replace an existing non-empty run directory.
+- `--backup-existing`: Archive an existing non-empty run directory before running.
 
 For local runs, set `OPENAI_KEY` in a `.env` file at the repo root (or export it in your shell)
 so the agents that call OpenAI can authenticate.
 
-Currently, the orchestrator runs the following agents:
+Currently, the orchestrator runs the following agents (in the DAG order above):
 
 - AG-00 (Intake Normalization)
 - AG-01 (Source Registry)
 - AG-10 (Identity and Legal)
 - AG-11 (Locations and Sites)
-
-Additional agent entry points exist under `src/agents/`, but they are not yet wired into the
-orchestrator.
+- AG-20 (Company Size)
+- AG-21 (Financial Signals)
+- AG-30 (Portfolio)
+- AG-31 (Markets Focus)
+- AG-40 (Target Customers)
+- AG-41 (Peer Discovery)
+- AG-42 (Customers of Manufacturers)
+- AG-70 (Supply Chain Tech)
+- AG-71 (Supply Chain Risks)
+- AG-72 (Sustainability & Circularity)
+- AG-81 (Industry Trends)
+- AG-82 (Trade Fairs & Events)
+- AG-83 (Associations & Memberships)
+- AG-90 (Sales Playbook)
 
 A typical run expects a case input with:
 
 - `company_name`
 - `company_domain`
+- `pipeline_version` (or provide `--pipeline-version` / `PIPELINE_VERSION`)
 
 Example case format:
 
 ```json
 {
   "company_name": "GROB-WERKE GmbH & Co. KG",
-  "company_domain": "grobgroup.com"
+  "company_domain": "grobgroup.com",
+  "pipeline_version": "local-dev+001"
 }
 ```
 
