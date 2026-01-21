@@ -75,8 +75,14 @@ def _build_sources(peer_names: List[str]) -> List[Dict[str, str]]:
         query = quote_plus(peer)
         sources.extend(
             [
-                {"publisher": "Google News", "url": f"https://news.google.com/search?q={query}%20customer"},
-                {"publisher": "PR Newswire", "url": f"https://www.prnewswire.com/search/news/?keyword={query}%20customer"},
+                {
+                    "publisher": "Google News",
+                    "url": f"https://news.google.com/search?q={query}%20customer",
+                },
+                {
+                    "publisher": "PR Newswire",
+                    "url": f"https://www.prnewswire.com/search/news/?keyword={query}%20customer",
+                },
                 {
                     "publisher": "Business Wire",
                     "url": f"https://www.businesswire.com/portal/site/home/search/?searchTerm={query}%20customer",
@@ -86,13 +92,17 @@ def _build_sources(peer_names: List[str]) -> List[Dict[str, str]]:
     return _dedupe_sources(sources)
 
 
-def _fetch_pages(sources: List[Dict[str, str]], timeout_s: float = 10.0) -> List[PageEvidence]:
+def _fetch_pages(
+    sources: List[Dict[str, str]], timeout_s: float = 10.0
+) -> List[PageEvidence]:
     evidences: List[PageEvidence] = []
     with httpx.Client(follow_redirects=True, timeout=timeout_s) as client:
         for src in sources:
             url = src["url"]
             try:
-                resp = client.get(url, headers={"User-Agent": "market-intel-pipeline/1.0"})
+                resp = client.get(
+                    url, headers={"User-Agent": "market-intel-pipeline/1.0"}
+                )
             except Exception:
                 continue
             if resp.status_code != 200:
@@ -104,7 +114,9 @@ def _fetch_pages(sources: List[Dict[str, str]], timeout_s: float = 10.0) -> List
             if not text:
                 continue
             evidences.append(
-                PageEvidence(url=url, publisher=src.get("publisher", "source"), text=text)
+                PageEvidence(
+                    url=url, publisher=src.get("publisher", "source"), text=text
+                )
             )
     return evidences
 
@@ -121,13 +133,13 @@ def _extract_customer_lines(text: str) -> List[str]:
     ]
     lines: List[str] = []
     for line in text.split("\n"):
-        l = line.strip()
-        if not l:
+        line_text = line.strip()
+        if not line_text:
             continue
-        if len(l) < 40 or len(l) > 260:
+        if len(line_text) < 40 or len(line_text) > 260:
             continue
-        if any(k in l.lower() for k in keywords):
-            lines.append(l)
+        if any(k in line_text.lower() for k in keywords):
+            lines.append(line_text)
         if len(lines) >= 6:
             break
     return lines
@@ -152,7 +164,9 @@ class AgentAG42CustomersOfManufacturers(BaseAgent):
     def run(self, case_input: Dict[str, Any]) -> AgentResult:
         started_at_utc = utc_now_iso()
 
-        company_name = normalize_whitespace(str(case_input.get("company_name", "")).strip())
+        company_name = normalize_whitespace(
+            str(case_input.get("company_name", "")).strip()
+        )
         if not company_name:
             return AgentResult(ok=False, output={"error": "missing company_name"})
 

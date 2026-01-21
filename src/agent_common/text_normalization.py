@@ -3,9 +3,7 @@ from __future__ import annotations
 import re
 
 
-DOMAIN_RE = re.compile(
-    r"^(?=.{1,253}$)([a-z0-9-]{1,63}\.)+[a-z]{2,63}$"
-)
+DOMAIN_RE = re.compile(r"^(?=.{1,253}$)([a-z0-9-]{1,63}\.)+[a-z]{2,63}$")
 
 
 def normalize_whitespace(text: str) -> str:

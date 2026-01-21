@@ -12,7 +12,9 @@ def normalize_domain(domain: str) -> str:
     return d
 
 
-def build_entity_key(*, domain: Optional[str] = None, name: Optional[str] = None) -> str:
+def build_entity_key(
+    *, domain: Optional[str] = None, name: Optional[str] = None
+) -> str:
     """Builds a deterministic entity key based on domain or name."""
     domain_norm = normalize_domain(domain or "")
     if domain_norm:

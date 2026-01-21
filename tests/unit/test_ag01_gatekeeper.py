@@ -39,7 +39,9 @@ def _base_ag01_output() -> dict:
         "findings": [
             {
                 "summary": "Source registry assembled",
-                "notes": ["No factual company assertions are made; sources are recommended verification targets."],
+                "notes": [
+                    "No factual company assertions are made; sources are recommended verification targets."
+                ],
             }
         ],
         "sources": [],
@@ -71,7 +73,11 @@ def test_ag01_gatekeeper_fails_missing_publisher_or_url() -> None:
     contract = load_step_contracts("configs/pipeline/step_contracts.yml")["AG-01"]
     output = _base_ag01_output()
     output["source_registry"]["primary_sources"] = [
-        {"publisher": "", "url": "https://example.com/about", "accessed_at_utc": "2024-01-01T00:00:00Z"}
+        {
+            "publisher": "",
+            "url": "https://example.com/about",
+            "accessed_at_utc": "2024-01-01T00:00:00Z",
+        }
     ]
 
     vr = validate_ag01_output(output, contract)
@@ -83,7 +89,9 @@ def test_ag01_gatekeeper_fails_missing_publisher_or_url() -> None:
 def test_ag01_gatekeeper_fails_missing_accessed_at_utc() -> None:
     contract = load_step_contracts("configs/pipeline/step_contracts.yml")["AG-01"]
     output = _base_ag01_output()
-    output["source_registry"]["primary_sources"] = [{"publisher": "Example Inc.", "url": "https://example.com/about"}]
+    output["source_registry"]["primary_sources"] = [
+        {"publisher": "Example Inc.", "url": "https://example.com/about"}
+    ]
 
     vr = validate_ag01_output(output, contract)
 

@@ -87,9 +87,18 @@ def _build_sources(company_name: str, domain: str) -> List[Dict[str, str]]:
     company_query = quote_plus(company_name)
     external_urls = [
         ("OpenCorporates", f"https://opencorporates.com/companies?q={company_query}"),
-        ("Google News", f"https://news.google.com/search?q={company_query}%20case%20study"),
-        ("PR Newswire", f"https://www.prnewswire.com/search/news/?keyword={company_query}"),
-        ("Business Wire", f"https://www.businesswire.com/portal/site/home/search/?searchTerm={company_query}"),
+        (
+            "Google News",
+            f"https://news.google.com/search?q={company_query}%20case%20study",
+        ),
+        (
+            "PR Newswire",
+            f"https://www.prnewswire.com/search/news/?keyword={company_query}",
+        ),
+        (
+            "Business Wire",
+            f"https://www.businesswire.com/portal/site/home/search/?searchTerm={company_query}",
+        ),
         ("10times", f"https://10times.com/search?kw={company_query}"),
         ("Eventbrite", f"https://www.eventbrite.com/d/online/{company_query}/"),
     ]
@@ -103,13 +112,17 @@ def _build_sources(company_name: str, domain: str) -> List[Dict[str, str]]:
     return sources
 
 
-def _fetch_pages(sources: List[Dict[str, str]], timeout_s: float = 10.0) -> List[PageEvidence]:
+def _fetch_pages(
+    sources: List[Dict[str, str]], timeout_s: float = 10.0
+) -> List[PageEvidence]:
     evidences: List[PageEvidence] = []
     with httpx.Client(follow_redirects=True, timeout=timeout_s) as client:
         for src in sources:
             url = src["url"]
             try:
-                resp = client.get(url, headers={"User-Agent": "market-intel-pipeline/1.0"})
+                resp = client.get(
+                    url, headers={"User-Agent": "market-intel-pipeline/1.0"}
+                )
             except Exception:
                 continue
             if resp.status_code != 200:
@@ -121,7 +134,9 @@ def _fetch_pages(sources: List[Dict[str, str]], timeout_s: float = 10.0) -> List
             if not text:
                 continue
             evidences.append(
-                PageEvidence(url=url, publisher=src.get("publisher", "source"), text=text)
+                PageEvidence(
+                    url=url, publisher=src.get("publisher", "source"), text=text
+                )
             )
     return evidences
 
@@ -142,24 +157,33 @@ def _split_names(value: str) -> List[str]:
 
 def _extract_customer_names(text: str) -> List[str]:
     patterns = [
-        re.compile(r"\b(?:Case Study|Customer Story|Client Story|Success Story)\b\s*[:\-]\s*(.+)", re.IGNORECASE),
+        re.compile(
+            r"\b(?:Case Study|Customer Story|Client Story|Success Story)\b\s*[:\-]\s*(.+)",
+            re.IGNORECASE,
+        ),
         re.compile(r"\b(?:Customer|Client|Reference)\b\s*[:\-]\s*(.+)", re.IGNORECASE),
-        re.compile(r"\b(?:Trusted by|Customers include|Clients include)\b\s*[:\-]?\s*(.+)", re.IGNORECASE),
+        re.compile(
+            r"\b(?:Trusted by|Customers include|Clients include)\b\s*[:\-]?\s*(.+)",
+            re.IGNORECASE,
+        ),
     ]
     names: List[str] = []
     for line in text.split("\n"):
-        l = line.strip()
-        if not l:
+        line_text = line.strip()
+        if not line_text:
             continue
         for pat in patterns:
-            match = pat.search(l)
+            match = pat.search(line_text)
             if not match:
                 continue
             for name in _split_names(match.group(1)):
                 if len(name) < 2 or len(name) > 80:
                     continue
                 lowered = name.lower()
-                if any(token in lowered for token in ("customer", "client", "case study", "success story")):
+                if any(
+                    token in lowered
+                    for token in ("customer", "client", "case study", "success story")
+                ):
                     continue
                 names.append(name)
     return names
@@ -170,7 +194,9 @@ def _slugify(text: str) -> str:
     return s.strip("-") or "nv"
 
 
-def _dedupe_customers(customers: List[Tuple[str, str, str]]) -> List[Tuple[str, str, str]]:
+def _dedupe_customers(
+    customers: List[Tuple[str, str, str]],
+) -> List[Tuple[str, str, str]]:
     seen = set()
     deduped: List[Tuple[str, str, str]] = []
     for name, source, publisher in customers:
@@ -201,12 +227,16 @@ class AgentAG40TargetCustomers(BaseAgent):
     def run(self, case_input: Dict[str, Any]) -> AgentResult:
         started_at_utc = utc_now_iso()
 
-        company_name = normalize_whitespace(str(case_input.get("company_name", "")).strip())
+        company_name = normalize_whitespace(
+            str(case_input.get("company_name", "")).strip()
+        )
         domain_raw = str(case_input.get("web_domain", "")).strip()
         domain = normalize_domain(domain_raw)
 
         if not company_name or not domain:
-            return AgentResult(ok=False, output={"error": "missing company_name or web_domain"})
+            return AgentResult(
+                ok=False, output={"error": "missing company_name or web_domain"}
+            )
 
         accessed_at = utc_now_iso()
         sources_catalog = _build_sources(company_name, domain)

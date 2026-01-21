@@ -99,12 +99,16 @@ class AgentAG01SourceRegistry(BaseAgent):
         meta_target_entity_stub: Dict[str, Any],
     ) -> AgentResult:
         started_at_utc = utc_now_iso()
-        company_name = str(meta_case_normalized.get("company_name_canonical", "")).strip()
+        company_name = str(
+            meta_case_normalized.get("company_name_canonical", "")
+        ).strip()
         domain = str(meta_case_normalized.get("web_domain_normalized", "")).strip()
         entity_key = str(meta_case_normalized.get("entity_key", "")).strip()
 
         if not company_name or not domain or not entity_key:
-            return AgentResult(ok=False, output={"error": "missing required meta artifacts"})
+            return AgentResult(
+                ok=False, output={"error": "missing required meta artifacts"}
+            )
 
         accessed_at_utc = utc_now_iso()
         primary_sources = _build_primary_sources(domain, company_name, accessed_at_utc)

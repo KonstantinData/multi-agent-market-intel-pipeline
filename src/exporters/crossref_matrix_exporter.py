@@ -15,7 +15,9 @@ class CrossrefRow:
     target_id: str
 
 
-def _rows_from_relations(relations: Iterable[Relation | Dict[str, str]]) -> List[CrossrefRow]:
+def _rows_from_relations(
+    relations: Iterable[Relation | Dict[str, str]],
+) -> List[CrossrefRow]:
     rows = []
     for rel in relations:
         if isinstance(rel, Relation):

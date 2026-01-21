@@ -16,13 +16,19 @@ from src.agents.ag30_portfolio.agent import AgentAG30Portfolio
 from src.agents.ag31_markets_focus.agent import AgentAG31MarketsFocus
 from src.agents.ag40_target_customers.agent import AgentAG40TargetCustomers
 from src.agents.ag41_peer_discovery.agent import AgentAG41PeerDiscovery
-from src.agents.ag42_customers_of_manufacturers.agent import AgentAG42CustomersOfManufacturers
+from src.agents.ag42_customers_of_manufacturers.agent import (
+    AgentAG42CustomersOfManufacturers,
+)
 from src.agents.ag70_supply_chain_tech.agent import AgentAG70SupplyChainTech
 from src.agents.ag71_supply_chain_risks.agent import AgentAG71SupplyChainRisks
-from src.agents.ag72_sustainability_circular.agent import AgentAG72SustainabilityCircular
+from src.agents.ag72_sustainability_circular.agent import (
+    AgentAG72SustainabilityCircular,
+)
 from src.agents.ag81_industry_trends.agent import AgentAG81IndustryTrends
 from src.agents.ag82_trade_fairs_events.agent import AgentAG82TradeFairsEvents
-from src.agents.ag83_associations_memberships.agent import AgentAG83AssociationsMemberships
+from src.agents.ag83_associations_memberships.agent import (
+    AgentAG83AssociationsMemberships,
+)
 from src.agents.ag90_sales_playbook.agent import AgentAG90SalesPlaybook
 from src.exporters.report_builder import build_report
 from src.orchestrator.logger import log_line
@@ -79,7 +85,10 @@ def _resolve_pipeline_version(
 
 
 def read_case_input(
-    case_file: str, *, pipeline_version_override: str | None, log_path: Path | None = None
+    case_file: str,
+    *,
+    pipeline_version_override: str | None,
+    log_path: Path | None = None,
 ) -> Dict[str, Any]:
     p = Path(case_file)
     case_input = json.loads(p.read_text(encoding="utf-8"))
@@ -111,10 +120,14 @@ def _log_skipped_steps(
         return
 
     for step_id in remaining_steps:
-        log_line(log_path, f"Skipping {step_id} due to {failed_step_id} gatekeeper failure")
+        log_line(
+            log_path, f"Skipping {step_id} due to {failed_step_id} gatekeeper failure"
+        )
 
 
-def _require_step_meta(output_payload: Dict[str, Any], step_id: str, log_path: Path) -> Dict[str, Any]:
+def _require_step_meta(
+    output_payload: Dict[str, Any], step_id: str, log_path: Path
+) -> Dict[str, Any]:
     step_meta = output_payload.get("step_meta")
     if not isinstance(step_meta, dict):
         log_line(log_path, f"{step_id} output missing step_meta")
@@ -255,13 +268,19 @@ def main() -> None:
     log_line(log_path, f"PIPELINE START run_id={ctx.run_id}")
 
     case_input = read_case_input(
-        args.case_file, pipeline_version_override=args.pipeline_version, log_path=log_path
+        args.case_file,
+        pipeline_version_override=args.pipeline_version,
+        log_path=log_path,
     )
     case_input["run_id"] = ctx.run_id
     case_file_path = Path(args.case_file)
-    log_line(log_path, f"Loaded case_file run_id={ctx.run_id} file={case_file_path.name}")
+    log_line(
+        log_path, f"Loaded case_file run_id={ctx.run_id} file={case_file_path.name}"
+    )
 
-    step_contracts = load_step_contracts(str(repo_root / "configs/pipeline/step_contracts.yml"))
+    step_contracts = load_step_contracts(
+        str(repo_root / "configs/pipeline/step_contracts.yml")
+    )
     dag_nodes = _load_pipeline_dag(repo_root)
     pipeline_steps = [node.step_id for node in dag_nodes]
     meta_payloads: Dict[str, Any] = {}
@@ -277,7 +296,9 @@ def main() -> None:
             raise SystemExit(1)
         missing_deps = [dep for dep in node.depends_on if dep not in completed_steps]
         if missing_deps:
-            log_line(log_path, f"{step_id} missing dependencies: {', '.join(missing_deps)}")
+            log_line(
+                log_path, f"{step_id} missing dependencies: {', '.join(missing_deps)}"
+            )
             raise SystemExit(1)
 
         step_dir = ctx.steps_dir / step_id
@@ -325,9 +346,16 @@ def main() -> None:
 
         if step_id == "AG-00":
             meta_payloads["case_normalized"] = agent_result.output["case_normalized"]
-            meta_payloads["target_entity_stub"] = agent_result.output["target_entity_stub"]
-            write_json(ctx.meta_dir / "case_normalized.json", meta_payloads["case_normalized"])
-            write_json(ctx.meta_dir / "target_entity_stub.json", meta_payloads["target_entity_stub"])
+            meta_payloads["target_entity_stub"] = agent_result.output[
+                "target_entity_stub"
+            ]
+            write_json(
+                ctx.meta_dir / "case_normalized.json", meta_payloads["case_normalized"]
+            )
+            write_json(
+                ctx.meta_dir / "target_entity_stub.json",
+                meta_payloads["target_entity_stub"],
+            )
 
         completed_steps.add(step_id)
 

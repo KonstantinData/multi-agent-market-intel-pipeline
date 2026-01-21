@@ -49,7 +49,9 @@ def _is_low_quality_company_name(name: str) -> bool:
     return False
 
 
-def validate_ag00_output(output: Dict[str, Any], contract: Dict[str, Any]) -> ValidatorResult:
+def validate_ag00_output(
+    output: Dict[str, Any], contract: Dict[str, Any]
+) -> ValidatorResult:
     step_id = contract["step_id"]
     errors: List[ValidationIssue] = []
     warnings: List[ValidationIssue] = []
@@ -67,11 +69,15 @@ def validate_ag00_output(output: Dict[str, Any], contract: Dict[str, Any]) -> Va
             )
 
     if errors:
-        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
+        return ValidatorResult(
+            ok=False, step_id=step_id, errors=errors, warnings=warnings
+        )
 
     _validate_step_meta(output, contract, errors)
     if errors:
-        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
+        return ValidatorResult(
+            ok=False, step_id=step_id, errors=errors, warnings=warnings
+        )
 
     # Required fields in case_normalized
     cn = output.get("case_normalized", {})
@@ -139,6 +145,7 @@ def _is_http_url(url: str) -> bool:
     u = (url or "").strip()
     return u.startswith("http://") or u.startswith("https://")
 
+
 _ISO_UTC_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 _PIPELINE_VERSION_RE = re.compile(
     r"^(?:[0-9a-f]{7,40}|\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?\+[0-9A-Za-z.-]+)$",
@@ -170,11 +177,7 @@ def _findings_signal_no_evidence(texts: List[str]) -> bool:
     if not texts:
         return False
     combined = " ".join(texts).lower()
-    return (
-        "no evidence" in combined
-        or "no verifiable" in combined
-        or "n/v" in combined
-    )
+    return "no evidence" in combined or "no verifiable" in combined or "n/v" in combined
 
 
 def _validate_step_meta(
@@ -230,7 +233,9 @@ def _validate_step_meta(
     if isinstance(pipeline_version, str):
         pipeline_version = pipeline_version.strip()
         if pipeline_version:
-            if pipeline_version == "n/v" or not _PIPELINE_VERSION_RE.match(pipeline_version):
+            if pipeline_version == "n/v" or not _PIPELINE_VERSION_RE.match(
+                pipeline_version
+            ):
                 errors.append(
                     ValidationIssue(
                         code=error_codes.INVALID_PIPELINE_VERSION,
@@ -329,7 +334,12 @@ def _validate_search_attempts(
             continue
         url = str(entry.get("url", "")).strip()
         accessed = str(entry.get("accessed_at_utc", "")).strip()
-        if not url or not accessed or not _is_http_url(url) or not _is_iso_utc(accessed):
+        if (
+            not url
+            or not accessed
+            or not _is_http_url(url)
+            or not _is_iso_utc(accessed)
+        ):
             errors.append(
                 ValidationIssue(
                     code=error_codes.MISSING_REQUIRED_FIELDS,
@@ -390,7 +400,11 @@ def _validate_relations_delta(
             if field == "source_id":
                 value = relation.get("source_id") or relation.get("from_entity_id")
             elif field == "target_id":
-                value = relation.get("target_id") or relation.get("to_entity_id") or relation.get("to_entity_key")
+                value = (
+                    relation.get("target_id")
+                    or relation.get("to_entity_id")
+                    or relation.get("to_entity_key")
+                )
             else:
                 value = relation.get(field)
 
@@ -403,11 +417,16 @@ def _validate_relations_delta(
                     )
                 )
 
+
 def _current_year() -> int:
     from datetime import datetime, timezone
+
     return datetime.now(timezone.utc).year
 
-def validate_ag01_output(output: Dict[str, Any], contract: Dict[str, Any]) -> ValidatorResult:
+
+def validate_ag01_output(
+    output: Dict[str, Any], contract: Dict[str, Any]
+) -> ValidatorResult:
     step_id = contract["step_id"]
     errors: List[ValidationIssue] = []
     warnings: List[ValidationIssue] = []
@@ -425,11 +444,15 @@ def validate_ag01_output(output: Dict[str, Any], contract: Dict[str, Any]) -> Va
             )
 
     if errors:
-        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
+        return ValidatorResult(
+            ok=False, step_id=step_id, errors=errors, warnings=warnings
+        )
 
     _validate_step_meta(output, contract, errors)
     if errors:
-        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
+        return ValidatorResult(
+            ok=False, step_id=step_id, errors=errors, warnings=warnings
+        )
 
     source_registry = output.get("source_registry", {})
     for field in contract["outputs"]["source_registry_required_fields"]:
@@ -443,7 +466,9 @@ def validate_ag01_output(output: Dict[str, Any], contract: Dict[str, Any]) -> Va
             )
 
     if errors:
-        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
+        return ValidatorResult(
+            ok=False, step_id=step_id, errors=errors, warnings=warnings
+        )
 
     primary_sources = source_registry.get("primary_sources")
     secondary_sources = source_registry.get("secondary_sources")
@@ -457,10 +482,14 @@ def validate_ag01_output(output: Dict[str, Any], contract: Dict[str, Any]) -> Va
             )
         )
     else:
-        _validate_source_list(primary_sources, "$.source_registry.primary_sources", errors)
+        _validate_source_list(
+            primary_sources, "$.source_registry.primary_sources", errors
+        )
 
     if secondary_sources is not None:
-        _validate_source_list(secondary_sources, "$.source_registry.secondary_sources", errors)
+        _validate_source_list(
+            secondary_sources, "$.source_registry.secondary_sources", errors
+        )
 
     findings = output.get("findings")
     finding_texts = _collect_finding_texts(findings)
@@ -476,6 +505,7 @@ def validate_ag01_output(output: Dict[str, Any], contract: Dict[str, Any]) -> Va
 
     ok = len(errors) == 0
     return ValidatorResult(ok=ok, step_id=step_id, errors=errors, warnings=warnings)
+
 
 def validate_ag10_output(
     output: Dict[str, Any],
@@ -500,19 +530,27 @@ def validate_ag10_output(
             )
 
     if errors:
-        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
+        return ValidatorResult(
+            ok=False, step_id=step_id, errors=errors, warnings=warnings
+        )
 
     _validate_step_meta(output, contract, errors)
     if errors:
-        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
+        return ValidatorResult(
+            ok=False, step_id=step_id, errors=errors, warnings=warnings
+        )
 
     _validate_step_meta(output, contract, errors)
     if errors:
-        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
+        return ValidatorResult(
+            ok=False, step_id=step_id, errors=errors, warnings=warnings
+        )
 
     _validate_step_meta(output, contract, errors)
     if errors:
-        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
+        return ValidatorResult(
+            ok=False, step_id=step_id, errors=errors, warnings=warnings
+        )
 
     entities = output.get("entities_delta", [])
     if not isinstance(entities, list):
@@ -523,7 +561,9 @@ def validate_ag10_output(
                 path="$.entities_delta",
             )
         )
-        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
+        return ValidatorResult(
+            ok=False, step_id=step_id, errors=errors, warnings=warnings
+        )
 
     # Target entity update must exist
     target = None
@@ -540,7 +580,9 @@ def validate_ag10_output(
                 path="$.entities_delta",
             )
         )
-        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
+        return ValidatorResult(
+            ok=False, step_id=step_id, errors=errors, warnings=warnings
+        )
 
     # Required fields in target entity
     for field in contract["outputs"]["target_entity_required_fields"]:
@@ -554,7 +596,9 @@ def validate_ag10_output(
             )
 
     if errors:
-        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
+        return ValidatorResult(
+            ok=False, step_id=step_id, errors=errors, warnings=warnings
+        )
 
     # Core invariants
     if target.get("entity_type") != "target_company":
@@ -751,7 +795,10 @@ def validate_ag10_output(
     ok = len(errors) == 0
     return ValidatorResult(ok=ok, step_id=step_id, errors=errors, warnings=warnings)
 
-def validate_ag11_output(output: Dict[str, Any], contract: Dict[str, Any]) -> ValidatorResult:
+
+def validate_ag11_output(
+    output: Dict[str, Any], contract: Dict[str, Any]
+) -> ValidatorResult:
     step_id = contract["step_id"]
     errors: List[ValidationIssue] = []
     warnings: List[ValidationIssue] = []
@@ -768,7 +815,9 @@ def validate_ag11_output(output: Dict[str, Any], contract: Dict[str, Any]) -> Va
             )
 
     if errors:
-        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
+        return ValidatorResult(
+            ok=False, step_id=step_id, errors=errors, warnings=warnings
+        )
 
     entities = output.get("entities_delta", [])
     if not isinstance(entities, list):
@@ -779,7 +828,9 @@ def validate_ag11_output(output: Dict[str, Any], contract: Dict[str, Any]) -> Va
                 path="$.entities_delta",
             )
         )
-        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
+        return ValidatorResult(
+            ok=False, step_id=step_id, errors=errors, warnings=warnings
+        )
 
     relations = output.get("relations_delta", [])
     if not isinstance(relations, list):
@@ -790,7 +841,9 @@ def validate_ag11_output(output: Dict[str, Any], contract: Dict[str, Any]) -> Va
                 path="$.relations_delta",
             )
         )
-        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
+        return ValidatorResult(
+            ok=False, step_id=step_id, errors=errors, warnings=warnings
+        )
 
     site_keys: List[str] = []
     for i, entity in enumerate(entities):
@@ -805,7 +858,13 @@ def validate_ag11_output(output: Dict[str, Any], contract: Dict[str, Any]) -> Va
             continue
         entity_type = entity.get("entity_type")
         if entity_type == "target_company":
-            required_fields = ["entity_id", "entity_type", "entity_name", "domain", "entity_key"]
+            required_fields = [
+                "entity_id",
+                "entity_type",
+                "entity_name",
+                "domain",
+                "entity_key",
+            ]
             for field in required_fields:
                 if field not in entity:
                     errors.append(
@@ -833,7 +892,13 @@ def validate_ag11_output(output: Dict[str, Any], contract: Dict[str, Any]) -> Va
                 )
             )
             continue
-        required_fields = ["entity_key", "entity_name", "site_type", "country_region", "city"]
+        required_fields = [
+            "entity_key",
+            "entity_name",
+            "site_type",
+            "country_region",
+            "city",
+        ]
         for field in required_fields:
             if field not in entity:
                 errors.append(
@@ -950,6 +1015,7 @@ def validate_ag11_output(output: Dict[str, Any], contract: Dict[str, Any]) -> Va
     ok = len(errors) == 0
     return ValidatorResult(ok=ok, step_id=step_id, errors=errors, warnings=warnings)
 
+
 def validate_ag20_output(
     output: Dict[str, Any],
     contract: Dict[str, Any],
@@ -972,7 +1038,9 @@ def validate_ag20_output(
             )
 
     if errors:
-        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
+        return ValidatorResult(
+            ok=False, step_id=step_id, errors=errors, warnings=warnings
+        )
 
     entities = output.get("entities_delta", [])
     if not isinstance(entities, list):
@@ -983,7 +1051,9 @@ def validate_ag20_output(
                 path="$.entities_delta",
             )
         )
-        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
+        return ValidatorResult(
+            ok=False, step_id=step_id, errors=errors, warnings=warnings
+        )
 
     target = None
     for e in entities:
@@ -999,7 +1069,9 @@ def validate_ag20_output(
                 path="$.entities_delta",
             )
         )
-        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
+        return ValidatorResult(
+            ok=False, step_id=step_id, errors=errors, warnings=warnings
+        )
 
     for field in contract["outputs"]["target_entity_required_fields"]:
         if field not in target:
@@ -1095,7 +1167,9 @@ def validate_ag20_output(
     return ValidatorResult(ok=ok, step_id=step_id, errors=errors, warnings=warnings)
 
 
-def validate_research_output(output: Dict[str, Any], contract: Dict[str, Any]) -> ValidatorResult:
+def validate_research_output(
+    output: Dict[str, Any], contract: Dict[str, Any]
+) -> ValidatorResult:
     step_id = contract["step_id"]
     errors: List[ValidationIssue] = []
     warnings: List[ValidationIssue] = []
@@ -1112,17 +1186,23 @@ def validate_research_output(output: Dict[str, Any], contract: Dict[str, Any]) -
             )
 
     if errors:
-        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
+        return ValidatorResult(
+            ok=False, step_id=step_id, errors=errors, warnings=warnings
+        )
 
     _validate_step_meta(output, contract, errors)
     if errors:
-        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
+        return ValidatorResult(
+            ok=False, step_id=step_id, errors=errors, warnings=warnings
+        )
 
     gatekeeper_rules = contract.get("validation", {}).get("gatekeeper_rules", {})
     findings_min = int(gatekeeper_rules.get("findings_min_items", 0) or 0)
     sources_min = int(gatekeeper_rules.get("sources_min_items", 0) or 0)
     allow_no_evidence = bool(gatekeeper_rules.get("allow_no_evidence", False))
-    require_sources_for_claims = bool(gatekeeper_rules.get("require_sources_for_claims", False))
+    require_sources_for_claims = bool(
+        gatekeeper_rules.get("require_sources_for_claims", False)
+    )
     require_entities = bool(gatekeeper_rules.get("require_entities", False))
     require_relations = bool(gatekeeper_rules.get("require_relations", False))
     allowed_entity_types = gatekeeper_rules.get("allowed_entity_types")
@@ -1139,7 +1219,9 @@ def validate_research_output(output: Dict[str, Any], contract: Dict[str, Any]) -
                 path="$.findings",
             )
         )
-        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
+        return ValidatorResult(
+            ok=False, step_id=step_id, errors=errors, warnings=warnings
+        )
 
     if findings_min and len(findings) < findings_min:
         errors.append(
@@ -1165,7 +1247,9 @@ def validate_research_output(output: Dict[str, Any], contract: Dict[str, Any]) -
                 path="$.entities_delta",
             )
         )
-        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
+        return ValidatorResult(
+            ok=False, step_id=step_id, errors=errors, warnings=warnings
+        )
 
     if "relations_delta" in required_sections and not isinstance(relations, list):
         errors.append(
@@ -1175,12 +1259,18 @@ def validate_research_output(output: Dict[str, Any], contract: Dict[str, Any]) -
                 path="$.relations_delta",
             )
         )
-        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
+        return ValidatorResult(
+            ok=False, step_id=step_id, errors=errors, warnings=warnings
+        )
 
     has_entities = isinstance(entities, list) and len(entities) > 0
     has_relations = isinstance(relations, list) and len(relations) > 0
 
-    if require_entities and not has_entities and not (allow_no_evidence and no_evidence):
+    if (
+        require_entities
+        and not has_entities
+        and not (allow_no_evidence and no_evidence)
+    ):
         errors.append(
             ValidationIssue(
                 code=error_codes.MISSING_REQUIRED_FIELDS,
@@ -1189,7 +1279,11 @@ def validate_research_output(output: Dict[str, Any], contract: Dict[str, Any]) -
             )
         )
 
-    if require_relations and not has_relations and not (allow_no_evidence and no_evidence):
+    if (
+        require_relations
+        and not has_relations
+        and not (allow_no_evidence and no_evidence)
+    ):
         errors.append(
             ValidationIssue(
                 code=error_codes.MISSING_REQUIRED_FIELDS,
@@ -1198,7 +1292,9 @@ def validate_research_output(output: Dict[str, Any], contract: Dict[str, Any]) -
             )
         )
 
-    entity_required_fields = contract.get("outputs", {}).get("entity_required_fields", [])
+    entity_required_fields = contract.get("outputs", {}).get(
+        "entity_required_fields", []
+    )
     for i, entity in enumerate(entities):
         if not isinstance(entity, dict):
             errors.append(
@@ -1223,7 +1319,11 @@ def validate_research_output(output: Dict[str, Any], contract: Dict[str, Any]) -
 
         for field in entity_required_fields:
             value = _get_entity_value(entity, field)
-            if field == "domain" and entity_domain_allow_nv and str(value).strip() == "n/v":
+            if (
+                field == "domain"
+                and entity_domain_allow_nv
+                and str(value).strip() == "n/v"
+            ):
                 continue
             if value is None or (isinstance(value, str) and not value.strip()):
                 errors.append(
@@ -1245,9 +1345,13 @@ def validate_research_output(output: Dict[str, Any], contract: Dict[str, Any]) -
                     )
                 )
 
-    relation_required_fields = contract.get("outputs", {}).get("relation_required_fields", [])
+    relation_required_fields = contract.get("outputs", {}).get(
+        "relation_required_fields", []
+    )
     if relation_required_fields or allowed_relation_types:
-        _validate_relations_delta(relations, relation_required_fields, allowed_relation_types, errors)
+        _validate_relations_delta(
+            relations, relation_required_fields, allowed_relation_types, errors
+        )
 
     sources = output.get("sources", [])
     if "sources" in required_sections and not isinstance(sources, list):
@@ -1258,14 +1362,20 @@ def validate_research_output(output: Dict[str, Any], contract: Dict[str, Any]) -
                 path="$.sources",
             )
         )
-        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
+        return ValidatorResult(
+            ok=False, step_id=step_id, errors=errors, warnings=warnings
+        )
 
     evidence_required = bool(
         require_sources_for_claims and (has_claims or has_entities or has_relations)
     )
     if not allow_no_evidence and not evidence_required:
         evidence_required = True
-    if allow_no_evidence and no_evidence and not (has_claims or has_entities or has_relations):
+    if (
+        allow_no_evidence
+        and no_evidence
+        and not (has_claims or has_entities or has_relations)
+    ):
         evidence_required = False
 
     if evidence_required:
@@ -1286,7 +1396,9 @@ def validate_research_output(output: Dict[str, Any], contract: Dict[str, Any]) -
     return ValidatorResult(ok=ok, step_id=step_id, errors=errors, warnings=warnings)
 
 
-def validate_generic_output(output: Dict[str, Any], contract: Dict[str, Any]) -> ValidatorResult:
+def validate_generic_output(
+    output: Dict[str, Any], contract: Dict[str, Any]
+) -> ValidatorResult:
     step_id = contract["step_id"]
     errors: List[ValidationIssue] = []
     warnings: List[ValidationIssue] = []
@@ -1303,7 +1415,9 @@ def validate_generic_output(output: Dict[str, Any], contract: Dict[str, Any]) ->
             )
 
     if errors:
-        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
+        return ValidatorResult(
+            ok=False, step_id=step_id, errors=errors, warnings=warnings
+        )
 
     _validate_step_meta(output, contract, errors)
     ok = len(errors) == 0

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from src.agent_common.base_agent import AgentResult, BaseAgent
 from src.agent_common.step_meta import build_step_meta, utc_now_iso
@@ -84,9 +84,7 @@ class AgentAG00IntakeNormalization(BaseAgent):
                 "domain_valid": is_valid_domain(domain),
             },
             "target_entity_stub": target_entity_stub,
-            "entities_delta": [
-                target_entity_stub
-            ],
+            "entities_delta": [target_entity_stub],
             "relations_delta": [],
             "findings": [
                 {

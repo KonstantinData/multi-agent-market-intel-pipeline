@@ -21,7 +21,9 @@ def _is_ascii(text: str) -> bool:
 def _walk(value: Any, path: str, issues: List[AsciiIssue]) -> None:
     if isinstance(value, str):
         if not _is_ascii(value):
-            issues.append(AsciiIssue(path=path, message="Non-ASCII characters detected"))
+            issues.append(
+                AsciiIssue(path=path, message="Non-ASCII characters detected")
+            )
         return
     if isinstance(value, dict):
         for key, item in value.items():
