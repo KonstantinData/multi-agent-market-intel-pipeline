@@ -123,6 +123,7 @@ def create_repo_tree(repo_root: Path) -> None:
         "src/orchestrator/logger.py",
         # agents common
         "src/agents/__init__.py",
+        "src/agents/common/__init__.py",
         "src/agent_common/__init__.py",
         "src/agent_common/base_agent.py",
         "src/agent_common/agent_types.py",
