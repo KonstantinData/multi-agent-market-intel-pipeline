@@ -189,9 +189,10 @@ _DOTENV_LOADED = False
 
 
 def _load_dotenv_if_present() -> None:
-    """Load .env into os.environ if present (no dependencies, no secret logging).
+    """Load OPENAI_KEY from .env into os.environ if present (no dependencies, no secret logging).
 
     Behavior:
+    - Only loads OPENAI_KEY (ignores all other keys).
     - Does not overwrite already-defined environment variables.
     - Supports lines: KEY=value, export KEY=value, quoted values, comments.
     - Deterministic: silent no-op on parse errors; never prints secrets.
@@ -234,24 +235,24 @@ def _load_dotenv_if_present() -> None:
             if len(v) >= 2 and ((v[0] == v[-1] == '"') or (v[0] == v[-1] == "'")):
                 v = v[1:-1]
 
-            if k and k not in os.environ:
+            if k == "OPENAI_KEY" and k not in os.environ:
                 os.environ[k] = v
     except Exception:
         return
 
 
 def _openai_api_key() -> str:
-    """Primary key location is OPEN-AI-KEY (as required).
+    """Primary key location is OPENAI_KEY (as required).
 
     Note: .env is not auto-loaded by Python. We load it here deterministically
     if the key is not already present in os.environ.
     """
-    key = os.getenv("OPEN-AI-KEY", "").strip() or os.getenv("OPENAI_API_KEY", "").strip()
+    key = os.getenv("OPENAI_KEY", "").strip() or os.getenv("OPENAI_API_KEY", "").strip()
     if key:
         return key
 
     _load_dotenv_if_present()
-    return os.getenv("OPEN-AI-KEY", "").strip() or os.getenv("OPENAI_API_KEY", "").strip()
+    return os.getenv("OPENAI_KEY", "").strip() or os.getenv("OPENAI_API_KEY", "").strip()
 
 
 def _normalize_for_contains(s: str) -> str:
@@ -490,7 +491,7 @@ class AgentAG10IdentityLegal(BaseAgent):
             return AgentResult(
                 ok=False,
                 output={
-                    "error": "missing OPEN-AI-KEY in environment (.env) - AG-10 requires LLM access",
+                    "error": "missing OpenAI API key for AG-10",
                 },
             )
 
