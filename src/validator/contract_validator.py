@@ -701,27 +701,7 @@ def validate_ag10_output(
                 )
             )
         else:
-            for i, s in enumerate(sources):
-                if not isinstance(s, dict):
-                    errors.append(
-                        ValidationIssue(
-                            code=error_codes.SOURCE_MISSING_REQUIRED_FIELDS,
-                            message="each source must be an object",
-                            path=f"$.sources[{i}]",
-                        )
-                    )
-                    continue
-                publisher = str(s.get("publisher", "")).strip()
-                url = str(s.get("url", "")).strip()
-                accessed = str(s.get("accessed_at_utc", "")).strip()
-                if not publisher or not url or not accessed or not _is_http_url(url):
-                    errors.append(
-                        ValidationIssue(
-                            code=error_codes.SOURCE_MISSING_REQUIRED_FIELDS,
-                            message="source requires publisher, http(s) url, accessed_at_utc",
-                            path=f"$.sources[{i}]",
-                        )
-                    )
+            _validate_source_list(sources, "$.sources", errors)
 
     if not isinstance(field_sources, dict):
         errors.append(
@@ -1141,27 +1121,7 @@ def validate_ag20_output(
                 )
             )
         else:
-            for i, s in enumerate(sources):
-                if not isinstance(s, dict):
-                    errors.append(
-                        ValidationIssue(
-                            code=error_codes.SOURCE_MISSING_REQUIRED_FIELDS,
-                            message="each source must be an object",
-                            path=f"$.sources[{i}]",
-                        )
-                    )
-                    continue
-                publisher = str(s.get("publisher", "")).strip()
-                url = str(s.get("url", "")).strip()
-                accessed = str(s.get("accessed_at_utc", "")).strip()
-                if not publisher or not url or not accessed or not _is_http_url(url):
-                    errors.append(
-                        ValidationIssue(
-                            code=error_codes.SOURCE_MISSING_REQUIRED_FIELDS,
-                            message="source requires publisher, http(s) url, accessed_at_utc",
-                            path=f"$.sources[{i}]",
-                        )
-                    )
+            _validate_source_list(sources, "$.sources", errors)
 
     ok = len(errors) == 0
     return ValidatorResult(ok=ok, step_id=step_id, errors=errors, warnings=warnings)
