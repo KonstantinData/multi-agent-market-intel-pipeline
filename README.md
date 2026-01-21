@@ -274,8 +274,10 @@ Run flags:
 - `--overwrite`: Replace an existing non-empty run directory.
 - `--backup-existing`: Archive an existing non-empty run directory before running.
 
-For local runs, set `OPENAI_KEY` in a `.env` file at the repo root (or export it in your shell)
-so the agents that call OpenAI can authenticate.
+For local runs, set `OPENAI_KEY` and `PIPELINE_VERSION` in a `.env` file at the repo root
+(or export them in your shell) so the agents can authenticate and the orchestrator can
+resolve the required pipeline version. You can optionally set `GIT_SHA` for run metadata;
+see `.env.example` for the canonical keys.
 
 Currently, the orchestrator runs the following agents (in the DAG order above):
 
