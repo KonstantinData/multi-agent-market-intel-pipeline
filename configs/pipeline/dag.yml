@@ -9,3 +9,63 @@ dag:
   - step_id: "AG-10"
     depends_on:
       - "AG-01"
+
+  - step_id: "AG-11"
+    depends_on:
+      - "AG-10"
+
+  - step_id: "AG-20"
+    depends_on:
+      - "AG-11"
+
+  - step_id: "AG-21"
+    depends_on:
+      - "AG-20"
+
+  - step_id: "AG-30"
+    depends_on:
+      - "AG-21"
+
+  - step_id: "AG-31"
+    depends_on:
+      - "AG-30"
+
+  - step_id: "AG-40"
+    depends_on:
+      - "AG-31"
+
+  - step_id: "AG-41"
+    depends_on:
+      - "AG-40"
+
+  - step_id: "AG-42"
+    depends_on:
+      - "AG-41"
+
+  - step_id: "AG-70"
+    depends_on:
+      - "AG-42"
+
+  - step_id: "AG-71"
+    depends_on:
+      - "AG-70"
+
+  - step_id: "AG-72"
+    depends_on:
+      - "AG-71"
+
+  - step_id: "AG-81"
+    depends_on:
+      - "AG-72"
+
+  - step_id: "AG-82"
+    depends_on:
+      - "AG-81"
+
+  - step_id: "AG-83"
+    depends_on:
+      - "AG-82"
+
+  - step_id: "AG-90"
+    depends_on:
+      - "AG-83"
