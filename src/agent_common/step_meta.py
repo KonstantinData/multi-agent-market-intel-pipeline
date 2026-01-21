@@ -7,9 +7,12 @@ from typing import Any, Dict
 
 
 ISO_UTC_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
+# Canonical timestamp format for pipeline data: ISO-8601 UTC without fractional seconds.
+# Example: 2024-01-31T15:04:05Z
 
 
 def utc_now_iso() -> str:
+    """Return ISO-8601 UTC time with seconds precision (no fractional seconds)."""
     return datetime.now(timezone.utc).strftime(ISO_UTC_FORMAT)
 
 

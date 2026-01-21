@@ -4,7 +4,6 @@ import json
 import os
 import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -18,10 +17,6 @@ from src.agent_common.step_meta import build_step_meta, utc_now_iso
 class PageEvidence:
     url: str
     text: str
-
-
-def _utc_now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 def _to_ascii(text: str) -> str:
@@ -581,7 +576,7 @@ class AgentAG10IdentityLegal(BaseAgent):
         legal_fields = [legal_name, legal_form, founding_year, registration_signals]
         has_claim = any(v not in (None, "", "n/v") for v in legal_fields)
 
-        accessed_at = _utc_now_iso()
+        accessed_at = utc_now_iso()
         if has_claim and not evidence_urls:
             evidence_urls = [f"https://{domain}/"]
         used_sources: List[Dict[str, str]] = []
