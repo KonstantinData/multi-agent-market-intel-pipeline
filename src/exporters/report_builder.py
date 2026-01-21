@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import json
+import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -167,7 +168,8 @@ def _write_json(path: Path, payload: Any) -> None:
 
 def _write_csv(path: Path, rows: List[Dict[str, Any]], fieldnames: List[str]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8", newline="") as handle:
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    with tmp_path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()
         for row in rows:
@@ -180,6 +182,9 @@ def _write_csv(path: Path, rows: List[Dict[str, Any]], fieldnames: List[str]) ->
                 for key in fieldnames
             }
             writer.writerow(normalized)
+        handle.flush()
+        os.fsync(handle.fileno())
+    tmp_path.replace(path)
 
 
 def _render_agent_section(agent_section: AgentSection) -> ReportSection:
