@@ -231,20 +231,26 @@ def build_report(ctx: RunContext) -> str:
     agent_sections = [_render_agent_section(section) for section in _build_agent_sections(outputs)]
     evidence_entries = _collect_evidence(outputs, relations)
 
+    entities_index_lines = [
+        f"- {entry['entity_id']} | {entry['entity_type']} | {entry['label']} | {entry.get('domain', 'n/v')}"
+        for entry in index_entries
+    ]
+    if not entities_index_lines:
+        entities_index_lines = ["- n/v"]
+
+    relations_index_lines = [
+        f"- {rel.source_id} → {rel.relation_type} → {rel.target_id}"
+        for rel in relations
+    ]
+    if not relations_index_lines:
+        relations_index_lines = ["- n/v"]
+
     crossref_lines = [
         "**Entities Index**",
-        *[
-            f"- {entry['entity_id']} | {entry['entity_type']} | {entry['label']} | {entry.get('domain', 'n/v')}"
-            for entry in index_entries
-        ]
-        or ["- n/v"],
+        *entities_index_lines,
         "",
         "**Relations Index**",
-        *[
-            f"- {rel.source_id} → {rel.relation_type} → {rel.target_id}"
-            for rel in relations
-        ]
-        or ["- n/v"],
+        *relations_index_lines,
         "",
         "**Evidence Index**",
         *[f"- {entry['reference']}: {entry['detail']}" for entry in evidence_entries],
