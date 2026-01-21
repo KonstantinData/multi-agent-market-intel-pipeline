@@ -23,6 +23,7 @@ from src.agents.ag81_industry_trends.agent import AgentAG81IndustryTrends
 from src.agents.ag82_trade_fairs_events.agent import AgentAG82TradeFairsEvents
 from src.agents.ag83_associations_memberships.agent import AgentAG83AssociationsMemberships
 from src.agents.ag90_sales_playbook.agent import AgentAG90SalesPlaybook
+from src.exporters.report_builder import build_report
 from src.orchestrator.logger import log_line
 from src.orchestrator.run_context import RunContext
 from src.validator.contract_validator import (
@@ -810,6 +811,11 @@ def main() -> None:
         "PIPELINE END (AG-00, AG-01, AG-10, AG-11, AG-20, AG-21, AG-30, AG-31, "
         "AG-40, AG-41, AG-42, AG-70, AG-71, AG-72, AG-81, AG-82, AG-83, AG-90 completed successfully)",
     )
+
+    report = build_report(ctx)
+    report_path = ctx.exports_dir / "report.md"
+    report_path.write_text(report, encoding="utf-8")
+    log_line(log_path, f"Report written path={report_path}")
 
 
 if __name__ == "__main__":
