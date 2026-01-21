@@ -6,7 +6,7 @@ import re
 import sys
 
 
-AGENT_DIR_RE = re.compile(r"^ag\\d{2}_.+")
+AGENT_DIR_RE = re.compile(r"^ag\d{2}_.+")
 
 
 def main() -> int:
@@ -24,7 +24,9 @@ def main() -> int:
     invalid = [
         path
         for path in agents_dir.iterdir()
-        if path.is_dir() and not AGENT_DIR_RE.match(path.name)
+        if path.is_dir()
+        and not AGENT_DIR_RE.match(path.name)
+        and path.name != "__pycache__"
     ]
 
     if invalid:
