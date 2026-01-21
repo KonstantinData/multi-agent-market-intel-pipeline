@@ -1,0 +1,61 @@
+{
+  "step_meta": {
+    "step_id": "AG-10",
+    "agent_name": "ag10_identity_legal",
+    "run_id": "run_2024_01_02_0001",
+    "started_at_utc": "2024-01-02T03:04:05Z",
+    "finished_at_utc": "2024-01-02T03:04:35Z",
+    "pipeline_version": "1.0.0+local"
+  },
+  "entities_delta": [
+    {
+      "entity_id": "TGT-001",
+      "entity_type": "target_company",
+      "entity_name": "Example Manufacturing GmbH",
+      "domain": "example.com",
+      "entity_key": "domain:example.com",
+      "legal_name": "Example Manufacturing GmbH",
+      "legal_form": "GmbH",
+      "founding_year": 2001,
+      "registration_signals": "Commercial register HRB 12345"
+    }
+  ],
+  "relations_delta": [],
+  "findings": [
+    {
+      "summary": "Identity and legal signals extracted",
+      "notes": [
+        "Legal identity fields extracted from publicly available pages."
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "publisher": "Example Manufacturing GmbH",
+      "url": "https://example.com/imprint",
+      "accessed_at_utc": "2024-01-02T03:04:05Z"
+    }
+  ],
+  "field_sources": {
+    "legal_name": [
+      {
+        "url": "https://example.com/imprint"
+      }
+    ],
+    "legal_form": [
+      {
+        "url": "https://example.com/imprint"
+      }
+    ],
+    "founding_year": [
+      {
+        "url": "https://example.com/imprint"
+      }
+    ],
+    "registration_signals": [
+      {
+        "url": "https://example.com/imprint"
+      }
+    ]
+  }
+}
