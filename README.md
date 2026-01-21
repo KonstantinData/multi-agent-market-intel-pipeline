@@ -241,6 +241,9 @@ The orchestration entrypoint is:
 python -m src.orchestrator.run_pipeline
 ```
 
+For local runs, set `OPENAI_KEY` in a `.env` file at the repo root (or export it in your shell)
+so the agents that call OpenAI can authenticate.
+
 Currently, the orchestrator runs the following agents:
 
 - AG-00 (Intake Normalization)

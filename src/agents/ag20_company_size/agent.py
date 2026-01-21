@@ -183,7 +183,7 @@ def _dedupe_sources(sources: List[Dict[str, str]]) -> List[Dict[str, str]]:
 
 
 def _openai_api_key() -> str:
-    return os.getenv("OPEN-AI-KEY", "").strip() or os.getenv("OPENAI_API_KEY", "").strip()
+    return os.getenv("OPENAI_KEY", "").strip() or os.getenv("OPENAI_API_KEY", "").strip()
 
 
 def _openai_extract_signals(text: str, api_key: str, timeout_s: float = 20.0) -> Dict[str, str]:
