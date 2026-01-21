@@ -4,8 +4,12 @@ import argparse
 import json
 import os
 import shutil
+from concurrent.futures import ThreadPoolExecutor, wait
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict
+
+import yaml
 
 from src.agents.ag00_intake_normalization.agent import AgentAG00IntakeNormalization
 from src.agents.ag01_source_registry.agent import AgentAG01SourceRegistry
@@ -45,6 +49,7 @@ from src.validator.contract_validator import (
 )
 from src.agent_common.file_utils import write_json_atomic, write_text_atomic
 from src.agent_common.step_meta import _resolve_repo_git_sha, utc_now_iso
+from src.orchestrator.batch_scheduler import BatchScheduler
 from src.orchestrator.dag_loader import StepNode, load_dag
 
 STEP_AGENT_REGISTRY = {
@@ -113,7 +118,10 @@ def write_json(path: Path, payload: Dict[str, Any]) -> None:
 
 
 def _log_skipped_steps(
-    log_path: Path, failed_step_id: str, pipeline_steps: list[str]
+    log_path: Path,
+    failed_step_id: str,
+    pipeline_steps: list[str],
+    completed_steps: set[str],
 ) -> None:
     if failed_step_id not in pipeline_steps:
         return
@@ -124,6 +132,8 @@ def _log_skipped_steps(
         return
 
     for step_id in remaining_steps:
+        if step_id in completed_steps:
+            continue
         log_line(
             log_path, f"Skipping {step_id} due to {failed_step_id} gatekeeper failure"
         )
@@ -258,6 +268,36 @@ def _load_pipeline_dag(repo_root: Path) -> list[StepNode]:
     return dag.nodes
 
 
+@dataclass(frozen=True)
+class _StepRunResult:
+    step_id: str
+    agent_result: Any | None
+    error: Exception | None = None
+
+
+def _load_concurrency_limit(repo_root: Path) -> int:
+    config_path = repo_root / "configs/pipeline/concurrency_limits.yml"
+    if not config_path.exists():
+        return 1
+    with open(config_path, "r", encoding="utf-8") as f:
+        data = yaml.safe_load(f) or {}
+    if not isinstance(data, dict):
+        raise SystemExit("concurrency_limits.yml must be a mapping")
+    max_parallel = data.get("max_parallel_steps", 1)
+    if not isinstance(max_parallel, int) or max_parallel < 1:
+        raise SystemExit("concurrency_limits.yml max_parallel_steps must be >= 1")
+    return max_parallel
+
+
+def _run_agent_step(step_id: str, agent_kwargs: Dict[str, Any]) -> _StepRunResult:
+    try:
+        agent = STEP_AGENT_REGISTRY[step_id]()
+        result = agent.run(**agent_kwargs)
+        return _StepRunResult(step_id=step_id, agent_result=result)
+    except Exception as exc:
+        return _StepRunResult(step_id=step_id, agent_result=None, error=exc)
+
+
 def _next_backup_path(run_root: Path) -> Path:
     timestamp = (
         utc_now_iso()
@@ -349,81 +389,138 @@ def main() -> None:
     )
     dag_nodes = _load_pipeline_dag(repo_root)
     pipeline_steps = [node.step_id for node in dag_nodes]
-    meta_payloads: Dict[str, Any] = {}
-    completed_steps: set[str] = set()
-
-    for node in dag_nodes:
-        step_id = node.step_id
+    for step_id in pipeline_steps:
         if step_id not in STEP_AGENT_REGISTRY:
             log_line(log_path, f"Missing agent registry entry for {step_id}")
             raise SystemExit(1)
         if step_id not in step_contracts:
             log_line(log_path, f"Missing contract entry for {step_id}")
             raise SystemExit(1)
-        missing_deps = [dep for dep in node.depends_on if dep not in completed_steps]
-        if missing_deps:
-            log_line(
-                log_path, f"{step_id} missing dependencies: {', '.join(missing_deps)}"
-            )
-            raise SystemExit(1)
 
-        step_dir = ctx.steps_dir / step_id
-        step_dir.mkdir(parents=True, exist_ok=True)
-        agent = STEP_AGENT_REGISTRY[step_id]()
-        log_line(log_path, f"Running {step_id} agent")
+    max_parallel = _load_concurrency_limit(repo_root)
+    log_line(log_path, f"Scheduler max_parallel_steps={max_parallel}")
+    scheduler = BatchScheduler(dag_nodes)
 
-        agent_kwargs = _build_agent_kwargs(
-            step_id=step_id,
-            case_input=case_input,
-            meta_payloads=meta_payloads,
-            log_path=log_path,
-        )
-        agent_result = agent.run(**agent_kwargs)
+    meta_payloads: Dict[str, Any] = {}
+    completed_steps: list[str] = []
+    completed_set: set[str] = set()
 
-        if not agent_result.ok:
-            write_json(step_dir / "agent_error.json", agent_result.output)
-            log_line(log_path, f"{step_id} agent self-validation FAILED")
-            raise SystemExit(2)
+    with ThreadPoolExecutor(max_workers=max_parallel) as executor:
+        while scheduler.remaining_steps(completed_steps):
+            ready_nodes = scheduler.ready_steps(completed_steps)
+            if not ready_nodes:
+                remaining = sorted(scheduler.remaining_steps(completed_steps))
+                log_line(
+                    log_path,
+                    "No ready steps found; remaining steps: "
+                    f"{', '.join(remaining)}",
+                )
+                raise SystemExit(1)
 
-        output_path = step_dir / "output.json"
-        write_json(output_path, agent_result.output)
-        log_line(log_path, f"{step_id} output written run_id={ctx.run_id}")
+            batch_nodes = ready_nodes[:max_parallel]
+            futures = {}
+            for node in batch_nodes:
+                step_id = node.step_id
+                missing_deps = [
+                    dep for dep in node.depends_on if dep not in completed_set
+                ]
+                if missing_deps:
+                    log_line(
+                        log_path,
+                        f"{step_id} missing dependencies: {', '.join(missing_deps)}",
+                    )
+                    raise SystemExit(1)
+                step_dir = ctx.steps_dir / step_id
+                step_dir.mkdir(parents=True, exist_ok=True)
+                log_line(log_path, f"Scheduling {step_id} agent")
+                agent_kwargs = _build_agent_kwargs(
+                    step_id=step_id,
+                    case_input=case_input,
+                    meta_payloads=meta_payloads,
+                    log_path=log_path,
+                )
+                futures[step_id] = executor.submit(
+                    _run_agent_step, step_id, agent_kwargs
+                )
 
-        contract = step_contracts[step_id]
-        vr = _validate_step_output(
-            step_id=step_id,
-            output_payload=agent_result.output,
-            contract=contract,
-            meta_payloads=meta_payloads,
-        )
-        validator_payload = build_validator_payload(
-            validation_result=vr,
-            output_payload=agent_result.output,
-            log_path=log_path,
-        )
+            wait(futures.values())
 
-        write_json(step_dir / "validator.json", validator_payload)
-        log_line(log_path, f"{step_id} gatekeeper ok={vr.ok}")
+            failure_step_id: str | None = None
+            failure_exit_code: int | None = None
+            for node in batch_nodes:
+                step_id = node.step_id
+                step_dir = ctx.steps_dir / step_id
+                result = futures[step_id].result()
 
-        if not vr.ok:
-            log_line(log_path, f"PIPELINE STOP ({step_id} contract validation failed)")
-            _log_skipped_steps(log_path, step_id, pipeline_steps)
-            raise SystemExit(3)
+                if result.error is not None:
+                    log_line(
+                        log_path, f"{step_id} agent execution error: {result.error}"
+                    )
+                    failure_step_id = failure_step_id or step_id
+                    failure_exit_code = failure_exit_code or 2
+                    continue
 
-        if step_id == "AG-00":
-            meta_payloads["case_normalized"] = agent_result.output["case_normalized"]
-            meta_payloads["target_entity_stub"] = agent_result.output[
-                "target_entity_stub"
-            ]
-            write_json(
-                ctx.meta_dir / "case_normalized.json", meta_payloads["case_normalized"]
-            )
-            write_json(
-                ctx.meta_dir / "target_entity_stub.json",
-                meta_payloads["target_entity_stub"],
-            )
+                agent_result = result.agent_result
+                if not agent_result.ok:
+                    write_json(step_dir / "agent_error.json", agent_result.output)
+                    log_line(log_path, f"{step_id} agent self-validation FAILED")
+                    failure_step_id = failure_step_id or step_id
+                    failure_exit_code = failure_exit_code or 2
+                    continue
 
-        completed_steps.add(step_id)
+                output_path = step_dir / "output.json"
+                write_json(output_path, agent_result.output)
+                log_line(log_path, f"{step_id} output written run_id={ctx.run_id}")
+
+                contract = step_contracts[step_id]
+                vr = _validate_step_output(
+                    step_id=step_id,
+                    output_payload=agent_result.output,
+                    contract=contract,
+                    meta_payloads=meta_payloads,
+                )
+                validator_payload = build_validator_payload(
+                    validation_result=vr,
+                    output_payload=agent_result.output,
+                    log_path=log_path,
+                )
+
+                write_json(step_dir / "validator.json", validator_payload)
+                log_line(log_path, f"{step_id} gatekeeper ok={vr.ok}")
+
+                if not vr.ok:
+                    log_line(
+                        log_path,
+                        f"PIPELINE STOP ({step_id} contract validation failed)",
+                    )
+                    failure_step_id = failure_step_id or step_id
+                    failure_exit_code = failure_exit_code or 3
+                    continue
+
+                if step_id == "AG-00":
+                    meta_payloads["case_normalized"] = agent_result.output[
+                        "case_normalized"
+                    ]
+                    meta_payloads["target_entity_stub"] = agent_result.output[
+                        "target_entity_stub"
+                    ]
+                    write_json(
+                        ctx.meta_dir / "case_normalized.json",
+                        meta_payloads["case_normalized"],
+                    )
+                    write_json(
+                        ctx.meta_dir / "target_entity_stub.json",
+                        meta_payloads["target_entity_stub"],
+                    )
+
+                completed_steps.append(step_id)
+                completed_set.add(step_id)
+
+            if failure_step_id:
+                _log_skipped_steps(
+                    log_path, failure_step_id, pipeline_steps, completed_set
+                )
+                raise SystemExit(failure_exit_code or 3)
 
     try:
         report = build_report(ctx)
