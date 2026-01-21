@@ -2,13 +2,50 @@ name: CI
 
 'on':
   workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - main
 
 permissions:
   contents: read
 
 jobs:
-  noop:
+  ci:
     runs-on: ubuntu-latest
     steps:
-      - name: No-op
-        run: echo "CI workflow placeholder"
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Format
+        run: ruff format --check .
+
+      - name: Unit tests
+        run: pytest tests/unit
+
+      - name: Integration tests
+        run: pytest tests/integration
+
+      - name: Contract validation
+        run: |
+          python scripts/validate_agents.py
+          pytest tests/unit/test_ag00_gatekeeper.py \
+            tests/unit/test_ag01_gatekeeper.py \
+            tests/unit/test_ag10_gatekeeper.py
