@@ -1028,3 +1028,27 @@ def validate_ag20_output(
 
     ok = len(errors) == 0
     return ValidatorResult(ok=ok, step_id=step_id, errors=errors, warnings=warnings)
+
+
+def validate_generic_output(output: Dict[str, Any], contract: Dict[str, Any]) -> ValidatorResult:
+    step_id = contract["step_id"]
+    errors: List[ValidationIssue] = []
+    warnings: List[ValidationIssue] = []
+
+    required_sections = contract["outputs"]["required_sections"]
+    for section in required_sections:
+        if section not in output:
+            errors.append(
+                ValidationIssue(
+                    code=error_codes.MISSING_REQUIRED_SECTIONS,
+                    message=f"Missing required section: {section}",
+                    path=f"$.{section}",
+                )
+            )
+
+    if errors:
+        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
+
+    _validate_step_meta(output, contract, errors)
+    ok = len(errors) == 0
+    return ValidatorResult(ok=ok, step_id=step_id, errors=errors, warnings=warnings)
