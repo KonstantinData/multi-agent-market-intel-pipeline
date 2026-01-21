@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 from typing import Any, Dict
 
@@ -59,9 +60,35 @@ PIPELINE_STEP_ORDER = [
 ]
 
 
-def read_case_input(case_file: str) -> Dict[str, Any]:
+def _resolve_pipeline_version(
+    case_input: Dict[str, Any], pipeline_version_override: str | None
+) -> str:
+    candidates = (
+        pipeline_version_override,
+        os.getenv("PIPELINE_VERSION"),
+        case_input.get("pipeline_version"),
+    )
+    for candidate in candidates:
+        if isinstance(candidate, str) and candidate.strip():
+            return candidate.strip()
+    return ""
+
+
+def read_case_input(
+    case_file: str, *, pipeline_version_override: str | None, log_path: Path | None = None
+) -> Dict[str, Any]:
     p = Path(case_file)
-    return json.loads(p.read_text(encoding="utf-8"))
+    case_input = json.loads(p.read_text(encoding="utf-8"))
+    pipeline_version = _resolve_pipeline_version(case_input, pipeline_version_override)
+    if not pipeline_version:
+        message = (
+            "pipeline_version is required; set --pipeline-version or PIPELINE_VERSION."
+        )
+        if log_path is not None:
+            log_line(log_path, message)
+        raise SystemExit(message)
+    case_input["pipeline_version"] = pipeline_version
+    return case_input
 
 
 def write_json(path: Path, payload: Dict[str, Any]) -> None:
@@ -153,6 +180,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--case-file", required=True)
+    parser.add_argument("--pipeline-version")
     args = parser.parse_args()
 
     repo_root = Path(__file__).resolve().parents[2]
@@ -161,7 +189,9 @@ def main() -> None:
     log_path = ctx.logs_dir / "pipeline.log"
     log_line(log_path, f"PIPELINE START run_id={ctx.run_id}")
 
-    case_input = read_case_input(args.case_file)
+    case_input = read_case_input(
+        args.case_file, pipeline_version_override=args.pipeline_version, log_path=log_path
+    )
     case_input["run_id"] = ctx.run_id
     case_file_path = Path(args.case_file)
     log_line(log_path, f"Loaded case_file run_id={ctx.run_id} file={case_file_path.name}")
