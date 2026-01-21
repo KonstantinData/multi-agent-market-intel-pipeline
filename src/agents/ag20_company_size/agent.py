@@ -27,13 +27,15 @@ def _to_ascii(text: str) -> str:
     if text is None:
         return ""
     s = str(text)
-    s = (s.replace("ä", "ae")
-           .replace("ö", "oe")
-           .replace("ü", "ue")
-           .replace("Ä", "Ae")
-           .replace("Ö", "Oe")
-           .replace("Ü", "Ue")
-           .replace("ß", "ss"))
+    s = (
+        s.replace("ä", "ae")
+        .replace("ö", "oe")
+        .replace("ü", "ue")
+        .replace("Ä", "Ae")
+        .replace("Ö", "Oe")
+        .replace("Ü", "Ue")
+        .replace("ß", "ss")
+    )
     s = s.encode("ascii", errors="ignore").decode("ascii")
     return s
 
@@ -52,7 +54,9 @@ def _strip_html(html: str) -> str:
     return text.strip()
 
 
-def _fetch_pages(domain: str, paths: List[str], timeout_s: float = 10.0) -> List[PageEvidence]:
+def _fetch_pages(
+    domain: str, paths: List[str], timeout_s: float = 10.0
+) -> List[PageEvidence]:
     base_url = f"https://{domain}"
     evidences: List[PageEvidence] = []
 
@@ -60,7 +64,9 @@ def _fetch_pages(domain: str, paths: List[str], timeout_s: float = 10.0) -> List
         for p in paths:
             url = f"{base_url}{p}"
             try:
-                resp = client.get(url, headers={"User-Agent": "market-intel-pipeline/1.0"})
+                resp = client.get(
+                    url, headers={"User-Agent": "market-intel-pipeline/1.0"}
+                )
             except Exception:
                 continue
 
@@ -85,7 +91,13 @@ def _normalize_number(token: str) -> str:
 
 
 def _has_guess_language(text: str) -> bool:
-    return bool(re.search(r"\b(approx|approximately|about|around|estimated|estimate)\b", text, re.IGNORECASE))
+    return bool(
+        re.search(
+            r"\b(approx|approximately|about|around|estimated|estimate)\b",
+            text,
+            re.IGNORECASE,
+        )
+    )
 
 
 def _extract_employee_range(line: str) -> Optional[str]:
@@ -161,7 +173,9 @@ def _extract_market_scope(line: str) -> Optional[str]:
     lowered = line.lower()
     if re.search(r"\b(global|worldwide|international|multinational)\b", lowered):
         return "global"
-    if re.search(r"\b(emea|apac|americas|europe|asia|north america|south america)\b", lowered):
+    if re.search(
+        r"\b(emea|apac|americas|europe|asia|north america|south america)\b", lowered
+    ):
         return "regional"
     if re.search(r"\b(national|nationwide)\b", lowered):
         return "national"
@@ -183,10 +197,14 @@ def _dedupe_sources(sources: List[Dict[str, str]]) -> List[Dict[str, str]]:
 
 
 def _openai_api_key() -> str:
-    return os.getenv("OPENAI_KEY", "").strip() or os.getenv("OPENAI_API_KEY", "").strip()
+    return (
+        os.getenv("OPENAI_KEY", "").strip() or os.getenv("OPENAI_API_KEY", "").strip()
+    )
 
 
-def _openai_extract_signals(text: str, api_key: str, timeout_s: float = 20.0) -> Dict[str, str]:
+def _openai_extract_signals(
+    text: str, api_key: str, timeout_s: float = 20.0
+) -> Dict[str, str]:
     if not text.strip():
         return {
             "employee_range": "n/v",
@@ -213,16 +231,13 @@ def _openai_extract_signals(text: str, api_key: str, timeout_s: float = 20.0) ->
 
     headers = {"Authorization": f"Bearer {api_key}"}
     with httpx.Client(timeout=timeout_s) as client:
-        resp = client.post("https://api.openai.com/v1/chat/completions", json=payload, headers=headers)
+        resp = client.post(
+            "https://api.openai.com/v1/chat/completions", json=payload, headers=headers
+        )
         resp.raise_for_status()
         data = resp.json()
 
-    content = (
-        data.get("choices", [{}])[0]
-        .get("message", {})
-        .get("content", "")
-        .strip()
-    )
+    content = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
     if not content:
         return {
             "employee_range": "n/v",
@@ -241,7 +256,8 @@ def _openai_extract_signals(text: str, api_key: str, timeout_s: float = 20.0) ->
     return {
         "employee_range": str(parsed.get("employee_range", "n/v")).strip() or "n/v",
         "revenue_band": str(parsed.get("revenue_band", "n/v")).strip() or "n/v",
-        "market_scope_signal": str(parsed.get("market_scope_signal", "n/v")).strip() or "n/v",
+        "market_scope_signal": str(parsed.get("market_scope_signal", "n/v")).strip()
+        or "n/v",
     }
 
 
@@ -256,12 +272,16 @@ class AgentAG20CompanySize(BaseAgent):
         meta_target_entity_stub: Dict[str, Any],
     ) -> AgentResult:
         started_at_utc = utc_now_iso()
-        company_name = _to_ascii(str(meta_case_normalized.get("company_name_canonical", ""))).strip()
+        company_name = _to_ascii(
+            str(meta_case_normalized.get("company_name_canonical", ""))
+        ).strip()
         domain = str(meta_case_normalized.get("web_domain_normalized", "")).strip()
         entity_key = str(meta_case_normalized.get("entity_key", "")).strip()
 
         if not company_name or not domain or not entity_key:
-            return AgentResult(ok=False, output={"error": "missing required meta artifacts"})
+            return AgentResult(
+                ok=False, output={"error": "missing required meta artifacts"}
+            )
 
         candidate_paths = [
             "/about",
@@ -293,7 +313,11 @@ class AgentAG20CompanySize(BaseAgent):
                 if not line_text:
                     continue
 
-                if re.search(r"\b(employees?|staff|people|team|headcount|revenue|turnover|sales|global|worldwide|international|multinational|national|nationwide|local|regional|emea|apac|americas|europe|asia)\b", line_text, re.IGNORECASE):
+                if re.search(
+                    r"\b(employees?|staff|people|team|headcount|revenue|turnover|sales|global|worldwide|international|multinational|national|nationwide|local|regional|emea|apac|americas|europe|asia)\b",
+                    line_text,
+                    re.IGNORECASE,
+                ):
                     evidence_lines.append(f"URL: {ev.url}\nLINE: {line_text}")
                     if ev.url:
                         evidence_urls.append(ev.url)
@@ -316,7 +340,11 @@ class AgentAG20CompanySize(BaseAgent):
                         market_scope_signal = candidate
                         contributed = True
 
-                if employee_range != "n/v" and revenue_band != "n/v" and market_scope_signal != "n/v":
+                if (
+                    employee_range != "n/v"
+                    and revenue_band != "n/v"
+                    and market_scope_signal != "n/v"
+                ):
                     break
 
             if ev.url and contributed:
@@ -328,24 +356,44 @@ class AgentAG20CompanySize(BaseAgent):
                     }
                 )
 
-            if employee_range != "n/v" and revenue_band != "n/v" and market_scope_signal != "n/v":
+            if (
+                employee_range != "n/v"
+                and revenue_band != "n/v"
+                and market_scope_signal != "n/v"
+            ):
                 break
 
         api_key = _openai_api_key()
-        if api_key and (employee_range == "n/v" or revenue_band == "n/v" or market_scope_signal == "n/v"):
+        if api_key and (
+            employee_range == "n/v"
+            or revenue_band == "n/v"
+            or market_scope_signal == "n/v"
+        ):
             try:
                 llm_text = "\n\n".join(evidence_lines[:200])
                 llm_result = _openai_extract_signals(llm_text, api_key=api_key)
-                if employee_range == "n/v" and llm_result.get("employee_range") not in ("", "n/v"):
+                if employee_range == "n/v" and llm_result.get("employee_range") not in (
+                    "",
+                    "n/v",
+                ):
                     employee_range = llm_result["employee_range"]
-                if revenue_band == "n/v" and llm_result.get("revenue_band") not in ("", "n/v"):
+                if revenue_band == "n/v" and llm_result.get("revenue_band") not in (
+                    "",
+                    "n/v",
+                ):
                     revenue_band = llm_result["revenue_band"]
-                if market_scope_signal == "n/v" and llm_result.get("market_scope_signal") not in ("", "n/v"):
+                if market_scope_signal == "n/v" and llm_result.get(
+                    "market_scope_signal"
+                ) not in ("", "n/v"):
                     market_scope_signal = llm_result["market_scope_signal"]
             except Exception:
                 pass
 
-        if (employee_range != "n/v" or revenue_band != "n/v" or market_scope_signal != "n/v") and evidence_urls:
+        if (
+            employee_range != "n/v"
+            or revenue_band != "n/v"
+            or market_scope_signal != "n/v"
+        ) and evidence_urls:
             for url in evidence_urls:
                 used_sources.append(
                     {
@@ -367,7 +415,9 @@ class AgentAG20CompanySize(BaseAgent):
         target_update = {
             "entity_id": "TGT-001",
             "entity_type": "target_company",
-            "entity_name": _to_ascii(str(meta_target_entity_stub.get("entity_name", company_name))),
+            "entity_name": _to_ascii(
+                str(meta_target_entity_stub.get("entity_name", company_name))
+            ),
             "domain": str(meta_target_entity_stub.get("domain", domain)),
             "entity_key": str(meta_target_entity_stub.get("entity_key", entity_key)),
             "employee_range": employee_range,

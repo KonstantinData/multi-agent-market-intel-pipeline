@@ -68,7 +68,9 @@ def _strip_html(html: str) -> str:
     return text.strip()
 
 
-def _fetch_pages(domain: str, paths: List[str], timeout_s: float = 10.0) -> List[PageEvidence]:
+def _fetch_pages(
+    domain: str, paths: List[str], timeout_s: float = 10.0
+) -> List[PageEvidence]:
     base_url = f"https://{domain}"
     evidences: List[PageEvidence] = []
 
@@ -76,7 +78,9 @@ def _fetch_pages(domain: str, paths: List[str], timeout_s: float = 10.0) -> List
         for p in paths:
             url = f"{base_url}{p}"
             try:
-                resp = client.get(url, headers={"User-Agent": "market-intel-pipeline/1.0"})
+                resp = client.get(
+                    url, headers={"User-Agent": "market-intel-pipeline/1.0"}
+                )
             except Exception:
                 continue
 
@@ -218,7 +222,9 @@ def _load_dotenv_if_present() -> None:
         return
 
     try:
-        for raw in dotenv_path.read_text(encoding="utf-8", errors="ignore").splitlines():
+        for raw in dotenv_path.read_text(
+            encoding="utf-8", errors="ignore"
+        ).splitlines():
             line = raw.strip()
             if not line or line.startswith("#"):
                 continue
@@ -252,7 +258,9 @@ def _openai_api_key() -> str:
         return key
 
     _load_dotenv_if_present()
-    return os.getenv("OPENAI_KEY", "").strip() or os.getenv("OPENAI_API_KEY", "").strip()
+    return (
+        os.getenv("OPENAI_KEY", "").strip() or os.getenv("OPENAI_API_KEY", "").strip()
+    )
 
 
 def _normalize_for_contains(s: str) -> str:
@@ -261,7 +269,9 @@ def _normalize_for_contains(s: str) -> str:
     return re.sub(r"\s+", " ", s).strip()
 
 
-def _collect_evidence_lines(pages: List[PageEvidence], max_lines: int = 180) -> Tuple[str, List[str]]:
+def _collect_evidence_lines(
+    pages: List[PageEvidence], max_lines: int = 180
+) -> Tuple[str, List[str]]:
     """Collect compact, URL-anchored evidence lines for LLM extraction.
 
     Deterministic selection:
@@ -326,7 +336,9 @@ def _collect_evidence_lines(pages: List[PageEvidence], max_lines: int = 180) -> 
     return evidence_text, deduped_urls
 
 
-def _openai_extract_legal_identity(evidence_text: str, api_key: str, timeout_s: float = 25.0) -> Dict[str, Any]:
+def _openai_extract_legal_identity(
+    evidence_text: str, api_key: str, timeout_s: float = 25.0
+) -> Dict[str, Any]:
     """Evidence-bound extraction of legal identity using OpenAI Chat Completions."""
     user_content = evidence_text.strip() or "NO_EVIDENCE"
 
@@ -355,16 +367,13 @@ def _openai_extract_legal_identity(evidence_text: str, api_key: str, timeout_s: 
 
     headers = {"Authorization": f"Bearer {api_key}"}
     with httpx.Client(timeout=timeout_s) as client:
-        resp = client.post("https://api.openai.com/v1/chat/completions", json=payload, headers=headers)
+        resp = client.post(
+            "https://api.openai.com/v1/chat/completions", json=payload, headers=headers
+        )
         resp.raise_for_status()
         data = resp.json()
 
-    content = (
-        data.get("choices", [{}])[0]
-        .get("message", {})
-        .get("content", "")
-        .strip()
-    )
+    content = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
     if not content:
         raise ValueError("empty OpenAI response")
 
@@ -379,14 +388,20 @@ def _openai_extract_legal_identity(evidence_text: str, api_key: str, timeout_s: 
     return parsed
 
 
-def _sanitize_llm_outputs(parsed: Dict[str, Any], evidence_text: str) -> Tuple[str, str, str, str]:
+def _sanitize_llm_outputs(
+    parsed: Dict[str, Any], evidence_text: str
+) -> Tuple[str, str, str, str]:
     """Enforce evidence-boundedness and validator compatibility."""
     ev_norm = _normalize_for_contains(evidence_text)
 
     raw_legal_name = _to_ascii(str(parsed.get("legal_name", "n/v"))).strip() or "n/v"
     raw_legal_form = _to_ascii(str(parsed.get("legal_form", "n/v"))).strip() or "n/v"
-    raw_founding_year = _to_ascii(str(parsed.get("founding_year", "n/v"))).strip() or "n/v"
-    raw_registration = _to_ascii(str(parsed.get("registration_signals", "n/v"))).strip() or "n/v"
+    raw_founding_year = (
+        _to_ascii(str(parsed.get("founding_year", "n/v"))).strip() or "n/v"
+    )
+    raw_registration = (
+        _to_ascii(str(parsed.get("registration_signals", "n/v"))).strip() or "n/v"
+    )
 
     if raw_legal_name != "n/v":
         if _normalize_for_contains(raw_legal_name) not in ev_norm:
@@ -479,12 +494,16 @@ class AgentAG10IdentityLegal(BaseAgent):
         meta_target_entity_stub: Dict[str, Any],
     ) -> AgentResult:
         started_at_utc = utc_now_iso()
-        company_name = _to_ascii(str(meta_case_normalized.get("company_name_canonical", ""))).strip()
+        company_name = _to_ascii(
+            str(meta_case_normalized.get("company_name_canonical", ""))
+        ).strip()
         domain = str(meta_case_normalized.get("web_domain_normalized", "")).strip()
         entity_key = str(meta_case_normalized.get("entity_key", "")).strip()
 
         if not company_name or not domain or not entity_key:
-            return AgentResult(ok=False, output={"error": "missing required meta artifacts"})
+            return AgentResult(
+                ok=False, output={"error": "missing required meta artifacts"}
+            )
 
         api_key = _openai_api_key()
         if not api_key:
@@ -510,13 +529,20 @@ class AgentAG10IdentityLegal(BaseAgent):
         evidence_text, evidence_urls = _collect_evidence_lines(pages)
 
         try:
-            parsed = _openai_extract_legal_identity(evidence_text=evidence_text, api_key=api_key)
+            parsed = _openai_extract_legal_identity(
+                evidence_text=evidence_text, api_key=api_key
+            )
         except Exception as e:
-            return AgentResult(ok=False, output={"error": f"openai_extraction_failed: {type(e).__name__}"})
+            return AgentResult(
+                ok=False,
+                output={"error": f"openai_extraction_failed: {type(e).__name__}"},
+            )
 
-        legal_name, legal_form, founding_year_s, registration_signals = _sanitize_llm_outputs(
-            parsed=parsed,
-            evidence_text=evidence_text,
+        legal_name, legal_form, founding_year_s, registration_signals = (
+            _sanitize_llm_outputs(
+                parsed=parsed,
+                evidence_text=evidence_text,
+            )
         )
 
         if pages and (legal_name == "n/v" or legal_form == "n/v"):
@@ -592,7 +618,9 @@ class AgentAG10IdentityLegal(BaseAgent):
         if not has_claim:
             notes.append("No verifiable legal identity evidence found (n/v).")
         else:
-            notes.append("Legal identity fields extracted from publicly available pages.")
+            notes.append(
+                "Legal identity fields extracted from publicly available pages."
+            )
 
         finished_at_utc = utc_now_iso()
 

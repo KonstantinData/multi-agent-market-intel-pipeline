@@ -30,12 +30,14 @@ def main() -> int:
     if invalid:
         invalid_list = ", ".join(sorted(path.name for path in invalid))
         print(
-            "Unexpected non-agent directories in src/agents: " f"{invalid_list}",
+            f"Unexpected non-agent directories in src/agents: {invalid_list}",
             file=sys.stderr,
         )
         return 1
 
-    missing_agent_py = [path.name for path in agent_dirs if not (path / "agent.py").exists()]
+    missing_agent_py = [
+        path.name for path in agent_dirs if not (path / "agent.py").exists()
+    ]
     if missing_agent_py:
         missing_list = ", ".join(sorted(missing_agent_py))
         print(f"Missing agent.py in: {missing_list}", file=sys.stderr)

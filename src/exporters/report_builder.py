@@ -48,9 +48,7 @@ def _render_entities(entities: Iterable[Entity]) -> List[str]:
 def _render_relations(relations: Iterable[Relation]) -> List[str]:
     lines = []
     for rel in relations:
-        lines.append(
-            f"- {rel.source_id} → {rel.relation_type} → {rel.target_id}"
-        )
+        lines.append(f"- {rel.source_id} → {rel.relation_type} → {rel.target_id}")
     return lines or ["- n/v"]
 
 
@@ -96,7 +94,9 @@ def _normalize_relations(relations_delta: List[Dict[str, Any]]) -> List[Dict[str
     normalized: List[Dict[str, Any]] = []
     for rel in relations_delta:
         source_id = rel.get("source_id") or rel.get("from_entity_id")
-        target_id = rel.get("target_id") or rel.get("to_entity_id") or rel.get("to_entity_key")
+        target_id = (
+            rel.get("target_id") or rel.get("to_entity_id") or rel.get("to_entity_key")
+        )
         normalized.append(
             {
                 "source_id": str(source_id or ""),
@@ -124,7 +124,9 @@ def _build_agent_sections(outputs: List[Dict[str, Any]]) -> List[AgentSection]:
     return sections
 
 
-def _collect_evidence(outputs: List[Dict[str, Any]], relations: Iterable[Relation]) -> List[Dict[str, str]]:
+def _collect_evidence(
+    outputs: List[Dict[str, Any]], relations: Iterable[Relation]
+) -> List[Dict[str, str]]:
     evidence_entries: List[Dict[str, str]] = []
     seen_keys: set[str] = set()
 
@@ -170,7 +172,11 @@ def _write_csv(path: Path, rows: List[Dict[str, Any]], fieldnames: List[str]) ->
         writer.writeheader()
         for row in rows:
             normalized = {
-                key: (json.dumps(row[key], ensure_ascii=False) if isinstance(row.get(key), (dict, list)) else row.get(key))
+                key: (
+                    json.dumps(row[key], ensure_ascii=False)
+                    if isinstance(row.get(key), (dict, list))
+                    else row.get(key)
+                )
                 for key in fieldnames
             }
             writer.writerow(normalized)
@@ -206,14 +212,23 @@ def build_report(ctx: RunContext) -> str:
     relations.sort(key=lambda rel: (rel.source_id, rel.relation_type, rel.target_id))
 
     exported_entities = export_entities(registry, ctx.exports_dir / "entities.json")
-    exported_relations = export_crossref_matrix(registry, ctx.exports_dir / "relations.json")
+    exported_relations = export_crossref_matrix(
+        registry, ctx.exports_dir / "relations.json"
+    )
     index_entries = build_index(registry)
     _write_json(ctx.exports_dir / "index.json", index_entries)
 
     _write_csv(
         ctx.exports_dir / "entities.csv",
         exported_entities,
-        ["entity_id", "entity_type", "entity_name", "domain", "entity_key", "attributes"],
+        [
+            "entity_id",
+            "entity_type",
+            "entity_name",
+            "domain",
+            "entity_key",
+            "attributes",
+        ],
     )
     _write_csv(
         ctx.exports_dir / "relations.csv",
@@ -228,7 +243,9 @@ def build_report(ctx: RunContext) -> str:
 
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")
 
-    agent_sections = [_render_agent_section(section) for section in _build_agent_sections(outputs)]
+    agent_sections = [
+        _render_agent_section(section) for section in _build_agent_sections(outputs)
+    ]
     evidence_entries = _collect_evidence(outputs, relations)
 
     entities_index_lines = [

@@ -38,7 +38,9 @@ def _coerce_entity(entity: Entity | Dict[str, Any]) -> ExportedEntity:
     )
 
 
-def _extract_entities(registry: EntityRegistry | Dict[str, Any]) -> Iterable[ExportedEntity]:
+def _extract_entities(
+    registry: EntityRegistry | Dict[str, Any],
+) -> Iterable[ExportedEntity]:
     if isinstance(registry, EntityRegistry):
         return [_coerce_entity(entity) for entity in registry.entities_by_id.values()]
     entities = registry.get("entities", []) if isinstance(registry, dict) else []

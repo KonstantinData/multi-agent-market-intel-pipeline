@@ -69,7 +69,10 @@ def _build_sources(company_name: str, domain: str) -> List[Dict[str, str]]:
     company_query = quote_plus(company_name)
     external_urls = [
         ("Google News", f"https://news.google.com/search?q={company_query}%20ERP"),
-        ("PR Newswire", f"https://www.prnewswire.com/search/news/?keyword={company_query}%20MES"),
+        (
+            "PR Newswire",
+            f"https://www.prnewswire.com/search/news/?keyword={company_query}%20MES",
+        ),
         (
             "Business Wire",
             f"https://www.businesswire.com/portal/site/home/search/?searchTerm={company_query}%20supply%20chain%20software",
@@ -84,13 +87,17 @@ def _build_sources(company_name: str, domain: str) -> List[Dict[str, str]]:
     return sources
 
 
-def _fetch_pages(sources: List[Dict[str, str]], timeout_s: float = 10.0) -> List[PageEvidence]:
+def _fetch_pages(
+    sources: List[Dict[str, str]], timeout_s: float = 10.0
+) -> List[PageEvidence]:
     evidences: List[PageEvidence] = []
     with httpx.Client(follow_redirects=True, timeout=timeout_s) as client:
         for src in sources:
             url = src["url"]
             try:
-                resp = client.get(url, headers={"User-Agent": "market-intel-pipeline/1.0"})
+                resp = client.get(
+                    url, headers={"User-Agent": "market-intel-pipeline/1.0"}
+                )
             except Exception:
                 continue
             if resp.status_code != 200:
@@ -102,7 +109,9 @@ def _fetch_pages(sources: List[Dict[str, str]], timeout_s: float = 10.0) -> List
             if not text:
                 continue
             evidences.append(
-                PageEvidence(url=url, publisher=src.get("publisher", "source"), text=text)
+                PageEvidence(
+                    url=url, publisher=src.get("publisher", "source"), text=text
+                )
             )
     return evidences
 
@@ -158,12 +167,16 @@ class AgentAG70SupplyChainTech(BaseAgent):
     def run(self, case_input: Dict[str, Any]) -> AgentResult:
         started_at_utc = utc_now_iso()
 
-        company_name = normalize_whitespace(str(case_input.get("company_name", "")).strip())
+        company_name = normalize_whitespace(
+            str(case_input.get("company_name", "")).strip()
+        )
         domain_raw = str(case_input.get("web_domain", "")).strip()
         domain = normalize_domain(domain_raw)
 
         if not company_name or not domain:
-            return AgentResult(ok=False, output={"error": "missing company_name or web_domain"})
+            return AgentResult(
+                ok=False, output={"error": "missing company_name or web_domain"}
+            )
 
         accessed_at = utc_now_iso()
         sources_catalog = _build_sources(company_name, domain)
@@ -192,7 +205,9 @@ class AgentAG70SupplyChainTech(BaseAgent):
             )
         else:
             for line, url, _publisher in tech_lines:
-                findings_notes.append(f"Supply chain tech signal: {line} (source: {url}).")
+                findings_notes.append(
+                    f"Supply chain tech signal: {line} (source: {url})."
+                )
 
         output: Dict[str, Any] = {
             "step_meta": build_step_meta(

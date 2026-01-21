@@ -12,7 +12,9 @@ class SchemaIssue:
     message: str
 
 
-def validate_schema(payload: Dict[str, Any], schema: Dict[str, Any]) -> List[SchemaIssue]:
+def validate_schema(
+    payload: Dict[str, Any], schema: Dict[str, Any]
+) -> List[SchemaIssue]:
     """Validates payload against a JSON schema and returns issues."""
     validator = Draft7Validator(schema)
     issues: List[SchemaIssue] = []

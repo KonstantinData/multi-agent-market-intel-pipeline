@@ -21,13 +21,15 @@ def _to_ascii(text: str) -> str:
     if text is None:
         return ""
     s = str(text)
-    s = (s.replace("ä", "ae")
-           .replace("ö", "oe")
-           .replace("ü", "ue")
-           .replace("Ä", "Ae")
-           .replace("Ö", "Oe")
-           .replace("Ü", "Ue")
-           .replace("ß", "ss"))
+    s = (
+        s.replace("ä", "ae")
+        .replace("ö", "oe")
+        .replace("ü", "ue")
+        .replace("Ä", "Ae")
+        .replace("Ö", "Oe")
+        .replace("Ü", "Ue")
+        .replace("ß", "ss")
+    )
     s = s.encode("ascii", errors="ignore").decode("ascii")
     return s
 
@@ -46,7 +48,9 @@ def _strip_html(html: str) -> str:
     return text.strip()
 
 
-def _fetch_pages(domain: str, paths: List[str], timeout_s: float = 10.0) -> List[PageEvidence]:
+def _fetch_pages(
+    domain: str, paths: List[str], timeout_s: float = 10.0
+) -> List[PageEvidence]:
     base_url = f"https://{domain}"
     evidences: List[PageEvidence] = []
 
@@ -54,7 +58,9 @@ def _fetch_pages(domain: str, paths: List[str], timeout_s: float = 10.0) -> List
         for p in paths:
             url = f"{base_url}{p}"
             try:
-                resp = client.get(url, headers={"User-Agent": "market-intel-pipeline/1.0"})
+                resp = client.get(
+                    url, headers={"User-Agent": "market-intel-pipeline/1.0"}
+                )
             except Exception:
                 continue
 
@@ -80,7 +86,9 @@ def _site_type_from_line(line: str) -> Optional[str]:
         return "hq"
     if re.search(r"\b(manufacturing|production|plant|factory|works)\b", lowered):
         return "production"
-    if re.search(r"\b(warehouse|logistics|distribution center|distribution centre)\b", lowered):
+    if re.search(
+        r"\b(warehouse|logistics|distribution center|distribution centre)\b", lowered
+    ):
         return "warehouse"
     return None
 
@@ -91,9 +99,11 @@ def _extract_location_from_line(line: str) -> Tuple[str, str]:
     if match:
         candidate = match.group(1).strip()
     else:
-        tokens = re.split(r"\b(headquarters|head office|hq|manufacturing|production|plant|factory|works|warehouse|logistics|distribution center|distribution centre)\b",
-                          line,
-                          flags=re.IGNORECASE)
+        tokens = re.split(
+            r"\b(headquarters|head office|hq|manufacturing|production|plant|factory|works|warehouse|logistics|distribution center|distribution centre)\b",
+            line,
+            flags=re.IGNORECASE,
+        )
         if tokens:
             candidate = tokens[-1].strip()
 
@@ -184,12 +194,16 @@ class AgentAG11LocationsSites(BaseAgent):
         meta_target_entity_stub: Dict[str, Any],
     ) -> AgentResult:
         started_at_utc = utc_now_iso()
-        company_name = _to_ascii(str(meta_case_normalized.get("company_name_canonical", ""))).strip()
+        company_name = _to_ascii(
+            str(meta_case_normalized.get("company_name_canonical", ""))
+        ).strip()
         domain = str(meta_case_normalized.get("web_domain_normalized", "")).strip()
         entity_key = str(meta_case_normalized.get("entity_key", "")).strip()
 
         if not company_name or not domain or not entity_key:
-            return AgentResult(ok=False, output={"error": "missing required meta artifacts"})
+            return AgentResult(
+                ok=False, output={"error": "missing required meta artifacts"}
+            )
 
         candidate_paths = [
             "/locations",
@@ -283,15 +297,21 @@ class AgentAG11LocationsSites(BaseAgent):
             }
             if "city" in missing_fields:
                 target_update["city"] = (
-                    _to_ascii(inferred_city) if inferred_city not in (None, "", "n/v") else "n/v"
+                    _to_ascii(inferred_city)
+                    if inferred_city not in (None, "", "n/v")
+                    else "n/v"
                 )
             if "postal_code" in missing_fields:
                 target_update["postal_code"] = (
-                    _to_ascii(inferred_postal) if inferred_postal not in (None, "", "n/v") else "n/v"
+                    _to_ascii(inferred_postal)
+                    if inferred_postal not in (None, "", "n/v")
+                    else "n/v"
                 )
             if "country" in missing_fields:
                 target_update["country"] = (
-                    _to_ascii(inferred_country) if inferred_country not in (None, "", "n/v") else "n/v"
+                    _to_ascii(inferred_country)
+                    if inferred_country not in (None, "", "n/v")
+                    else "n/v"
                 )
             entities_delta.append(target_update)
 

@@ -22,7 +22,11 @@ def validate_sources(sources: Any, path_prefix: str = "$.sources") -> List[Sourc
 
     for idx, entry in enumerate(sources):
         if not isinstance(entry, dict):
-            issues.append(SourceIssue(path=f"{path_prefix}[{idx}]", message="source must be an object"))
+            issues.append(
+                SourceIssue(
+                    path=f"{path_prefix}[{idx}]", message="source must be an object"
+                )
+            )
             continue
         publisher = str(entry.get("publisher", "")).strip()
         url = str(entry.get("url", "")).strip()

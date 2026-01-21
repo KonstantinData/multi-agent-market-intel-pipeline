@@ -84,9 +84,7 @@ class AgentAG00IntakeNormalization(BaseAgent):
                 "domain_valid": is_valid_domain(domain),
             },
             "target_entity_stub": target_entity_stub,
-            "entities_delta": [
-                target_entity_stub
-            ],
+            "entities_delta": [target_entity_stub],
             "relations_delta": [],
             "findings": [
                 {

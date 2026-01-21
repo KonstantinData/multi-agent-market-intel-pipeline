@@ -26,6 +26,7 @@ DOTENV_PATH = REPO_ROOT / ".env"
 # Minimal .env loader (no deps, no secret logging)
 # -------------------------
 
+
 def _parse_dotenv_file(path: Path) -> dict[str, str]:
     """
     Parses .env lines like:
@@ -98,6 +99,7 @@ def _build_subprocess_env() -> dict[str, str]:
 # Intake models
 # -------------------------
 
+
 @dataclass
 class IntakeCase:
     # Required
@@ -115,6 +117,7 @@ class IntakeCase:
 # -------------------------
 # Helpers (validation + normalization)
 # -------------------------
+
 
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -361,7 +364,9 @@ if "show_preview" not in st.session_state:
     st.session_state.show_preview = False
 
 
-tab_intake, tab_monitor, tab_results = st.tabs(["1) Intake", "2) Run Monitor", "3) Results"])
+tab_intake, tab_monitor, tab_results = st.tabs(
+    ["1) Intake", "2) Run Monitor", "3) Results"]
+)
 
 
 # =====================================================
@@ -385,18 +390,28 @@ with tab_intake:
     col1, col2, col3 = st.columns(3)
     with col1:
         city = st.text_input("City", placeholder="Stuttgart", key="intake_city")
-        postal_code = st.text_input("Postal code", placeholder="70173", key="intake_postal")
+        postal_code = st.text_input(
+            "Postal code", placeholder="70173", key="intake_postal"
+        )
     with col2:
         country = st.text_input("Country", placeholder="Germany", key="intake_country")
-        parent_company = st.text_input("Parent company", placeholder="n/v", key="intake_parent")
+        parent_company = st.text_input(
+            "Parent company", placeholder="n/v", key="intake_parent"
+        )
     with col3:
-        child_company = st.text_input("Child company", placeholder="n/v", key="intake_child")
+        child_company = st.text_input(
+            "Child company", placeholder="n/v", key="intake_child"
+        )
 
     # Live normalization preview (no artifacts written yet)
     company_name_canonical = normalize_whitespace(company_name_raw)
     domain_normalized = normalize_domain(web_domain_raw)
     domain_ok = bool(domain_normalized) and is_valid_domain(domain_normalized)
-    entity_key_preview = build_entity_key_from_domain(domain_normalized) if domain_normalized else "domain:n/v"
+    entity_key_preview = (
+        build_entity_key_from_domain(domain_normalized)
+        if domain_normalized
+        else "domain:n/v"
+    )
 
     st.markdown("### Live Preview (No artifacts created yet)")
     st.code(
@@ -427,13 +442,19 @@ with tab_intake:
     # If typo warning is present, require explicit confirmation
     confirm_domain_checkbox = False
     if typo_info.get("warn"):
-        confirm_domain_checkbox = st.checkbox("I confirm the domain is correct (typo warning acknowledged)")
+        confirm_domain_checkbox = st.checkbox(
+            "I confirm the domain is correct (typo warning acknowledged)"
+        )
 
-    start_disabled = (not required_ok) or (typo_info.get("warn") and not confirm_domain_checkbox)
+    start_disabled = (not required_ok) or (
+        typo_info.get("warn") and not confirm_domain_checkbox
+    )
 
     colA, colB = st.columns([1, 1])
     with colA:
-        preview_btn = st.button("START RESEARCH", type="primary", disabled=start_disabled)
+        preview_btn = st.button(
+            "START RESEARCH", type="primary", disabled=start_disabled
+        )
 
     with colB:
         reset_btn = st.button("Reset Intake")
@@ -460,11 +481,15 @@ with tab_intake:
 
     if st.session_state.show_preview and st.session_state.draft_intake is not None:
         st.divider()
-        st.subheader("Confirmation Step (Artifacts will be created only after confirmation)")
+        st.subheader(
+            "Confirmation Step (Artifacts will be created only after confirmation)"
+        )
 
         draft: IntakeCase = st.session_state.draft_intake
         preview_payload = asdict(draft)
-        preview_payload["entity_key_preview"] = build_entity_key_from_domain(draft.web_domain)
+        preview_payload["entity_key_preview"] = build_entity_key_from_domain(
+            draft.web_domain
+        )
         preview_payload["created_at_utc_preview"] = utc_now_iso()
 
         st.json(preview_payload)
@@ -517,7 +542,9 @@ with tab_monitor:
             start_btn = st.button("Start Pipeline (subprocess)", type="primary")
 
         with colB:
-            rerun_ag00_btn = st.button("Re-run AG-00 (using corrected input if present)")
+            rerun_ag00_btn = st.button(
+                "Re-run AG-00 (using corrected input if present)"
+            )
 
         with colC:
             archive_btn = st.button("Archive run", type="secondary")
@@ -542,19 +569,27 @@ with tab_monitor:
                     st.session_state.pipeline_proc_pid = proc.pid
                     st.success(f"Pipeline started. PID={proc.pid}")
                 except FileNotFoundError:
-                    st.error("Orchestrator entrypoint not found: src.orchestrator.run_pipeline")
+                    st.error(
+                        "Orchestrator entrypoint not found: src.orchestrator.run_pipeline"
+                    )
 
         # Re-run AG-00 using corrected input if present
         if rerun_ag00_btn:
             corrected = run_root / "meta" / "case_corrected.json"
-            case_file = corrected if corrected.exists() else (run_root / "meta" / "case_input.json")
+            case_file = (
+                corrected
+                if corrected.exists()
+                else (run_root / "meta" / "case_input.json")
+            )
             if not case_file.exists():
                 st.error("No case file found to run AG-00.")
             else:
                 try:
                     proc = start_pipeline_subprocess(run_id, case_file)
                     st.session_state.pipeline_proc_pid = proc.pid
-                    st.success(f"AG-00 re-run started. PID={proc.pid} case_file={case_file.name}")
+                    st.success(
+                        f"AG-00 re-run started. PID={proc.pid} case_file={case_file.name}"
+                    )
                 except Exception as e:
                     st.error(f"Re-run failed: {e}")
 
@@ -585,15 +620,29 @@ with tab_monitor:
                 pass
 
         with st.form("edit_intake_form"):
-            e_company_name = st.text_input("Company name *", value=str(current_payload.get("company_name", "")))
-            e_web_domain = st.text_input("Web domain *", value=str(current_payload.get("web_domain", "")))
+            e_company_name = st.text_input(
+                "Company name *", value=str(current_payload.get("company_name", ""))
+            )
+            e_web_domain = st.text_input(
+                "Web domain *", value=str(current_payload.get("web_domain", ""))
+            )
             e_city = st.text_input("City", value=str(current_payload.get("city") or ""))
-            e_postal = st.text_input("Postal code", value=str(current_payload.get("postal_code") or ""))
-            e_country = st.text_input("Country", value=str(current_payload.get("country") or ""))
-            e_parent = st.text_input("Parent company", value=str(current_payload.get("parent_company") or ""))
-            e_child = st.text_input("Child company", value=str(current_payload.get("child_company") or ""))
+            e_postal = st.text_input(
+                "Postal code", value=str(current_payload.get("postal_code") or "")
+            )
+            e_country = st.text_input(
+                "Country", value=str(current_payload.get("country") or "")
+            )
+            e_parent = st.text_input(
+                "Parent company", value=str(current_payload.get("parent_company") or "")
+            )
+            e_child = st.text_input(
+                "Child company", value=str(current_payload.get("child_company") or "")
+            )
 
-            save_correction = st.form_submit_button("Save correction (case_corrected.json)")
+            save_correction = st.form_submit_button(
+                "Save correction (case_corrected.json)"
+            )
 
         if save_correction:
             # Audit trail: snapshot old files with timestamp
@@ -626,7 +675,9 @@ with tab_monitor:
             else:
                 write_json(corrected_path, corrected_payload)
                 st.success(f"Saved correction: {corrected_path.name}")
-                st.info("Use 'Re-run AG-00' to regenerate normalized artifacts from corrected input.")
+                st.info(
+                    "Use 'Re-run AG-00' to regenerate normalized artifacts from corrected input."
+                )
 
         # Logs
         log_path = run_root / "logs" / "pipeline.log"

@@ -36,7 +36,9 @@ def merge_registry(
         if existing is None:
             entity_id = entity_payload.get("entity_id")
             if not entity_id:
-                entity_id = allocator.allocate(str(entity_payload.get("entity_type", "entity")), registry)
+                entity_id = allocator.allocate(
+                    str(entity_payload.get("entity_type", "entity")), registry
+                )
             entity_payload["entity_id"] = entity_id
             entity = Entity.from_dict(entity_payload)
             registry.add_entity(entity)

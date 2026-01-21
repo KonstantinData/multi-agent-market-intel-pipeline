@@ -10,11 +10,17 @@ class RuleIssue:
     message: str
 
 
-def apply_rule_checks(payload: Dict[str, Any], rules: Dict[str, Any]) -> List[RuleIssue]:
+def apply_rule_checks(
+    payload: Dict[str, Any], rules: Dict[str, Any]
+) -> List[RuleIssue]:
     """Applies lightweight rule checks from rules config."""
     issues: List[RuleIssue] = []
-    required_fields = rules.get("required_fields", []) if isinstance(rules, dict) else []
+    required_fields = (
+        rules.get("required_fields", []) if isinstance(rules, dict) else []
+    )
     for field in required_fields:
         if payload.get(field) in (None, "", [], {}):
-            issues.append(RuleIssue(path=f"$.{field}", message="Missing required field"))
+            issues.append(
+                RuleIssue(path=f"$.{field}", message="Missing required field")
+            )
     return issues
