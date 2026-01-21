@@ -32,7 +32,7 @@ from src.validator.contract_validator import (
     validate_ag10_output,
     validate_ag11_output,
     validate_ag20_output,
-    validate_generic_output,
+    validate_research_output,
 )
 from src.agent_common.step_meta import utc_now_iso
 
@@ -370,7 +370,7 @@ def main() -> None:
     log_line(log_path, f"AG-21 output written run_id={ctx.run_id}")
 
     contract21 = step_contracts[step_id]
-    vr21 = validate_generic_output(agent21_result.output, contract21)
+    vr21 = validate_research_output(agent21_result.output, contract21)
 
     validator_payload21 = build_validator_payload(
         validation_result=vr21,
@@ -405,7 +405,7 @@ def main() -> None:
     log_line(log_path, f"AG-30 output written run_id={ctx.run_id}")
 
     contract30 = step_contracts[step_id]
-    vr30 = validate_generic_output(agent30_result.output, contract30)
+    vr30 = validate_research_output(agent30_result.output, contract30)
 
     validator_payload30 = build_validator_payload(
         validation_result=vr30,
@@ -440,7 +440,7 @@ def main() -> None:
     log_line(log_path, f"AG-31 output written run_id={ctx.run_id}")
 
     contract31 = step_contracts[step_id]
-    vr31 = validate_generic_output(agent31_result.output, contract31)
+    vr31 = validate_research_output(agent31_result.output, contract31)
 
     validator_payload31 = build_validator_payload(
         validation_result=vr31,
@@ -475,7 +475,7 @@ def main() -> None:
     log_line(log_path, f"AG-40 output written run_id={ctx.run_id}")
 
     contract40 = step_contracts[step_id]
-    vr40 = validate_generic_output(agent40_result.output, contract40)
+    vr40 = validate_research_output(agent40_result.output, contract40)
 
     validator_payload40 = build_validator_payload(
         validation_result=vr40,
@@ -510,7 +510,7 @@ def main() -> None:
     log_line(log_path, f"AG-41 output written run_id={ctx.run_id}")
 
     contract41 = step_contracts[step_id]
-    vr41 = validate_generic_output(agent41_result.output, contract41)
+    vr41 = validate_research_output(agent41_result.output, contract41)
 
     validator_payload41 = build_validator_payload(
         validation_result=vr41,
@@ -545,7 +545,7 @@ def main() -> None:
     log_line(log_path, f"AG-42 output written run_id={ctx.run_id}")
 
     contract42 = step_contracts[step_id]
-    vr42 = validate_generic_output(agent42_result.output, contract42)
+    vr42 = validate_research_output(agent42_result.output, contract42)
 
     validator_payload42 = build_validator_payload(
         validation_result=vr42,
@@ -580,7 +580,7 @@ def main() -> None:
     log_line(log_path, f"AG-70 output written run_id={ctx.run_id}")
 
     contract70 = step_contracts[step_id]
-    vr70 = validate_generic_output(agent70_result.output, contract70)
+    vr70 = validate_research_output(agent70_result.output, contract70)
 
     validator_payload70 = build_validator_payload(
         validation_result=vr70,
@@ -615,7 +615,7 @@ def main() -> None:
     log_line(log_path, f"AG-71 output written run_id={ctx.run_id}")
 
     contract71 = step_contracts[step_id]
-    vr71 = validate_generic_output(agent71_result.output, contract71)
+    vr71 = validate_research_output(agent71_result.output, contract71)
 
     validator_payload71 = build_validator_payload(
         validation_result=vr71,
@@ -650,7 +650,7 @@ def main() -> None:
     log_line(log_path, f"AG-72 output written run_id={ctx.run_id}")
 
     contract72 = step_contracts[step_id]
-    vr72 = validate_generic_output(agent72_result.output, contract72)
+    vr72 = validate_research_output(agent72_result.output, contract72)
 
     validator_payload72 = build_validator_payload(
         validation_result=vr72,
@@ -685,7 +685,7 @@ def main() -> None:
     log_line(log_path, f"AG-81 output written run_id={ctx.run_id}")
 
     contract81 = step_contracts[step_id]
-    vr81 = validate_generic_output(agent81_result.output, contract81)
+    vr81 = validate_research_output(agent81_result.output, contract81)
 
     validator_payload81 = build_validator_payload(
         validation_result=vr81,
@@ -720,7 +720,7 @@ def main() -> None:
     log_line(log_path, f"AG-82 output written run_id={ctx.run_id}")
 
     contract82 = step_contracts[step_id]
-    vr82 = validate_generic_output(agent82_result.output, contract82)
+    vr82 = validate_research_output(agent82_result.output, contract82)
 
     validator_payload82 = build_validator_payload(
         validation_result=vr82,
@@ -755,7 +755,7 @@ def main() -> None:
     log_line(log_path, f"AG-83 output written run_id={ctx.run_id}")
 
     contract83 = step_contracts[step_id]
-    vr83 = validate_generic_output(agent83_result.output, contract83)
+    vr83 = validate_research_output(agent83_result.output, contract83)
 
     validator_payload83 = build_validator_payload(
         validation_result=vr83,
@@ -790,7 +790,7 @@ def main() -> None:
     log_line(log_path, f"AG-90 output written run_id={ctx.run_id}")
 
     contract90 = step_contracts[step_id]
-    vr90 = validate_generic_output(agent90_result.output, contract90)
+    vr90 = validate_research_output(agent90_result.output, contract90)
 
     validator_payload90 = build_validator_payload(
         validation_result=vr90,

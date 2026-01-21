@@ -338,6 +338,71 @@ def _validate_search_attempts(
                 )
             )
 
+
+def _get_entity_value(entity: Dict[str, Any], field: str) -> Any:
+    if field in entity:
+        return entity.get(field)
+    attributes = entity.get("attributes", {})
+    if isinstance(attributes, dict):
+        return attributes.get(field)
+    return None
+
+
+def _validate_relations_delta(
+    relations: Any,
+    required_fields: List[str],
+    allowed_relation_types: Optional[List[str]],
+    errors: List[ValidationIssue],
+) -> None:
+    if not isinstance(relations, list):
+        errors.append(
+            ValidationIssue(
+                code=error_codes.MISSING_REQUIRED_FIELDS,
+                message="relations_delta must be a list",
+                path="$.relations_delta",
+            )
+        )
+        return
+
+    for i, relation in enumerate(relations):
+        if not isinstance(relation, dict):
+            errors.append(
+                ValidationIssue(
+                    code=error_codes.MISSING_REQUIRED_FIELDS,
+                    message="relations_delta entries must be objects",
+                    path=f"$.relations_delta[{i}]",
+                )
+            )
+            continue
+
+        if allowed_relation_types:
+            relation_type = str(relation.get("relation_type", "")).strip()
+            if relation_type not in allowed_relation_types:
+                errors.append(
+                    ValidationIssue(
+                        code=error_codes.MISSING_REQUIRED_FIELDS,
+                        message=f"relation_type must be one of {allowed_relation_types}",
+                        path=f"$.relations_delta[{i}].relation_type",
+                    )
+                )
+
+        for field in required_fields:
+            if field == "source_id":
+                value = relation.get("source_id") or relation.get("from_entity_id")
+            elif field == "target_id":
+                value = relation.get("target_id") or relation.get("to_entity_id") or relation.get("to_entity_key")
+            else:
+                value = relation.get(field)
+
+            if value is None or (isinstance(value, str) and not value.strip()):
+                errors.append(
+                    ValidationIssue(
+                        code=error_codes.MISSING_REQUIRED_FIELDS,
+                        message=f"Missing required relation field: {field}",
+                        path=f"$.relations_delta[{i}].{field}",
+                    )
+                )
+
 def _current_year() -> int:
     from datetime import datetime, timezone
     return datetime.now(timezone.utc).year
@@ -1025,6 +1090,197 @@ def validate_ag20_output(
                             path=f"$.sources[{i}]",
                         )
                     )
+
+    ok = len(errors) == 0
+    return ValidatorResult(ok=ok, step_id=step_id, errors=errors, warnings=warnings)
+
+
+def validate_research_output(output: Dict[str, Any], contract: Dict[str, Any]) -> ValidatorResult:
+    step_id = contract["step_id"]
+    errors: List[ValidationIssue] = []
+    warnings: List[ValidationIssue] = []
+
+    required_sections = contract["outputs"]["required_sections"]
+    for section in required_sections:
+        if section not in output:
+            errors.append(
+                ValidationIssue(
+                    code=error_codes.MISSING_REQUIRED_SECTIONS,
+                    message=f"Missing required section: {section}",
+                    path=f"$.{section}",
+                )
+            )
+
+    if errors:
+        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
+
+    _validate_step_meta(output, contract, errors)
+    if errors:
+        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
+
+    gatekeeper_rules = contract.get("validation", {}).get("gatekeeper_rules", {})
+    findings_min = int(gatekeeper_rules.get("findings_min_items", 0) or 0)
+    sources_min = int(gatekeeper_rules.get("sources_min_items", 0) or 0)
+    allow_no_evidence = bool(gatekeeper_rules.get("allow_no_evidence", False))
+    require_sources_for_claims = bool(gatekeeper_rules.get("require_sources_for_claims", False))
+    require_entities = bool(gatekeeper_rules.get("require_entities", False))
+    require_relations = bool(gatekeeper_rules.get("require_relations", False))
+    allowed_entity_types = gatekeeper_rules.get("allowed_entity_types")
+    allowed_relation_types = gatekeeper_rules.get("allowed_relation_types")
+    required_entity_attributes = gatekeeper_rules.get("required_entity_attributes", [])
+    entity_domain_allow_nv = bool(gatekeeper_rules.get("entity_domain_allow_nv", False))
+
+    findings = output.get("findings")
+    if not isinstance(findings, list):
+        errors.append(
+            ValidationIssue(
+                code=error_codes.MISSING_REQUIRED_FIELDS,
+                message="findings must be a list",
+                path="$.findings",
+            )
+        )
+        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
+
+    if findings_min and len(findings) < findings_min:
+        errors.append(
+            ValidationIssue(
+                code=error_codes.MISSING_REQUIRED_FIELDS,
+                message=f"findings must have at least {findings_min} item(s)",
+                path="$.findings",
+            )
+        )
+
+    finding_texts = _collect_finding_texts(findings)
+    has_claims = any(_finding_contains_claim(text) for text in finding_texts)
+    no_evidence = _findings_signal_no_evidence(finding_texts)
+
+    entities = output.get("entities_delta", [])
+    relations = output.get("relations_delta", [])
+
+    if "entities_delta" in required_sections and not isinstance(entities, list):
+        errors.append(
+            ValidationIssue(
+                code=error_codes.MISSING_REQUIRED_FIELDS,
+                message="entities_delta must be a list",
+                path="$.entities_delta",
+            )
+        )
+        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
+
+    if "relations_delta" in required_sections and not isinstance(relations, list):
+        errors.append(
+            ValidationIssue(
+                code=error_codes.MISSING_REQUIRED_FIELDS,
+                message="relations_delta must be a list",
+                path="$.relations_delta",
+            )
+        )
+        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
+
+    has_entities = isinstance(entities, list) and len(entities) > 0
+    has_relations = isinstance(relations, list) and len(relations) > 0
+
+    if require_entities and not has_entities and not (allow_no_evidence and no_evidence):
+        errors.append(
+            ValidationIssue(
+                code=error_codes.MISSING_REQUIRED_FIELDS,
+                message="entities_delta must include at least one entity",
+                path="$.entities_delta",
+            )
+        )
+
+    if require_relations and not has_relations and not (allow_no_evidence and no_evidence):
+        errors.append(
+            ValidationIssue(
+                code=error_codes.MISSING_REQUIRED_FIELDS,
+                message="relations_delta must include at least one relation",
+                path="$.relations_delta",
+            )
+        )
+
+    entity_required_fields = contract.get("outputs", {}).get("entity_required_fields", [])
+    for i, entity in enumerate(entities):
+        if not isinstance(entity, dict):
+            errors.append(
+                ValidationIssue(
+                    code=error_codes.MISSING_REQUIRED_FIELDS,
+                    message="entities_delta entries must be objects",
+                    path=f"$.entities_delta[{i}]",
+                )
+            )
+            continue
+
+        if allowed_entity_types:
+            entity_type = str(entity.get("entity_type", "")).strip()
+            if entity_type not in allowed_entity_types:
+                errors.append(
+                    ValidationIssue(
+                        code=error_codes.MISSING_REQUIRED_FIELDS,
+                        message=f"entity_type must be one of {allowed_entity_types}",
+                        path=f"$.entities_delta[{i}].entity_type",
+                    )
+                )
+
+        for field in entity_required_fields:
+            value = _get_entity_value(entity, field)
+            if field == "domain" and entity_domain_allow_nv and str(value).strip() == "n/v":
+                continue
+            if value is None or (isinstance(value, str) and not value.strip()):
+                errors.append(
+                    ValidationIssue(
+                        code=error_codes.MISSING_REQUIRED_FIELDS,
+                        message=f"Missing required entity field: {field}",
+                        path=f"$.entities_delta[{i}].{field}",
+                    )
+                )
+
+        for attribute in required_entity_attributes:
+            value = _get_entity_value(entity, attribute)
+            if value is None or (isinstance(value, str) and not value.strip()):
+                errors.append(
+                    ValidationIssue(
+                        code=error_codes.MISSING_REQUIRED_FIELDS,
+                        message=f"Missing required entity attribute: {attribute}",
+                        path=f"$.entities_delta[{i}].{attribute}",
+                    )
+                )
+
+    relation_required_fields = contract.get("outputs", {}).get("relation_required_fields", [])
+    if relation_required_fields or allowed_relation_types:
+        _validate_relations_delta(relations, relation_required_fields, allowed_relation_types, errors)
+
+    sources = output.get("sources", [])
+    if "sources" in required_sections and not isinstance(sources, list):
+        errors.append(
+            ValidationIssue(
+                code=error_codes.MISSING_REQUIRED_FIELDS,
+                message="sources must be a list",
+                path="$.sources",
+            )
+        )
+        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
+
+    evidence_required = bool(
+        require_sources_for_claims and (has_claims or has_entities or has_relations)
+    )
+    if not allow_no_evidence and not evidence_required:
+        evidence_required = True
+    if allow_no_evidence and no_evidence and not (has_claims or has_entities or has_relations):
+        evidence_required = False
+
+    if evidence_required:
+        if not isinstance(sources, list) or len(sources) < sources_min:
+            errors.append(
+                ValidationIssue(
+                    code=error_codes.MISSING_SOURCES_FOR_CLAIMS,
+                    message=f"sources must include at least {sources_min} item(s) when evidence is required",
+                    path="$.sources",
+                )
+            )
+        else:
+            _validate_source_list(sources, "$.sources", errors)
+    elif isinstance(sources, list) and len(sources) > 0:
+        _validate_source_list(sources, "$.sources", errors)
 
     ok = len(errors) == 0
     return ValidatorResult(ok=ok, step_id=step_id, errors=errors, warnings=warnings)
