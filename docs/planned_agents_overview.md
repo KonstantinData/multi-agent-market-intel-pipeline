@@ -269,100 +269,7 @@
 
 ---
 
-## 11) What AG-50 delivers (Projects and Tenders)
-
-### AG-50 produces:
-
-**A) findings**
-
-* public projects
-* tenders
-* investments
-
-**B) sources**
-
-**Gatekeeper rules:**
-
-* dates and amounts require sources
-* announcements only, no speculation
-
----
-
-## 12) What AG-51 delivers (Strategic Changes)
-
-### AG-51 produces:
-
-**A) findings**
-
-* M&A
-* relocations
-* expansions
-* major partnerships
-
-**B) sources**
-
-**Gatekeeper rules:**
-
-* events must be time-bound
-* rumors forbidden
-
----
-
-## 13) What AG-60 delivers (Industry Cycles)
-
-### AG-60 produces:
-
-**A) findings**
-
-* industry production cycles
-* inventory cadence signals
-
-**B) sources**
-
-**Gatekeeper rules:**
-
-* must be industry-level, not company guesses
-
----
-
-## 14) What AG-61 delivers (Surplus Stock Signals)
-
-### AG-61 produces:
-
-**A) findings**
-
-* surplus indicators (discounting, shutdowns, layoffs)
-* overproduction hints or n/v
-
-**B) sources**
-
-**Gatekeeper rules:**
-
-* weak signals allowed only with sources
-* absence must be n/v
-
----
-
-## 15) What AG-62 delivers (Surplus Sales Channels)
-
-### AG-62 produces:
-
-**A) findings**
-
-* outlet channels
-* liquidation platforms
-* distributors
-
-**B) sources**
-
-**Gatekeeper rules:**
-
-* channels must be verifiable
-* generic marketplaces only if explicitly used
-
----
-
-## 16) What AG-70 delivers (Supply Chain Technology)
+## 11) What AG-70 delivers (Supply Chain Technology)
 
 ### AG-70 produces:
 
@@ -379,7 +286,7 @@
 
 ---
 
-## 17) What AG-71 delivers (Supply Chain Risks)
+## 12) What AG-71 delivers (Supply Chain Risks)
 
 ### AG-71 produces:
 
@@ -397,7 +304,7 @@
 
 ---
 
-## 18) What AG-72 delivers (Sustainability and Circular Economy)
+## 13) What AG-72 delivers (Sustainability and Circular Economy)
 
 ### AG-72 produces:
 
@@ -415,24 +322,7 @@
 
 ---
 
-## 19) What AG-80 delivers (Market Position)
-
-### AG-80 produces:
-
-**A) findings**
-
-* competitor landscape
-* relative positioning signals
-
-**B) sources**
-
-**Gatekeeper rules:**
-
-* positioning must reference peers already defined
-
----
-
-## 20) What AG-81 delivers (Industry Trends)
+## 14) What AG-81 delivers (Industry Trends)
 
 ### AG-81 produces:
 
@@ -448,7 +338,7 @@
 
 ---
 
-## 21) What AG-82 delivers (Trade Fairs and Events)
+## 15) What AG-82 delivers (Trade Fairs and Events)
 
 ### AG-82 produces:
 
@@ -465,7 +355,7 @@
 
 ---
 
-## 22) What AG-83 delivers (Industry Associations)
+## 16) What AG-83 delivers (Industry Associations)
 
 ### AG-83 produces:
 
@@ -481,7 +371,7 @@
 
 ---
 
-## 23) What AG-90 delivers (Sales and Negotiation Playbook)
+## 17) What AG-90 delivers (Sales and Negotiation Playbook)
 
 ### AG-90 produces:
 
