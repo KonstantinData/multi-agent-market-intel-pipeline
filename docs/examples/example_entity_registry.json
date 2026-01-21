@@ -1,0 +1,56 @@
+{
+  "entities": [
+    {
+      "entity_id": "TGT-001",
+      "entity_type": "target_company",
+      "entity_name": "Example Manufacturing GmbH",
+      "domain": "example.com",
+      "entity_key": "domain:example.com",
+      "attributes": {
+        "legal_name": "Example Manufacturing GmbH",
+        "legal_form": "GmbH",
+        "founding_year": 2001,
+        "registration_signals": "Commercial register HRB 12345",
+        "employee_range": "201-500",
+        "revenue_band": "100M-250M"
+      },
+      "sources": [
+        {
+          "publisher": "Example Manufacturing GmbH",
+          "url": "https://example.com/imprint",
+          "accessed_at_utc": "2024-01-02T03:04:05Z"
+        }
+      ]
+    },
+    {
+      "entity_id": "MFR-001",
+      "entity_type": "manufacturer",
+      "entity_name": "Example Components Ltd.",
+      "domain": "components.example",
+      "entity_key": "domain:components.example",
+      "attributes": {
+        "offering_summary": "Industrial subassemblies"
+      },
+      "sources": [
+        {
+          "publisher": "Example Components Ltd.",
+          "url": "https://components.example/about",
+          "accessed_at_utc": "2024-01-03T09:15:00Z"
+        }
+      ]
+    }
+  ],
+  "relations": [
+    {
+      "source_id": "MFR-001",
+      "relation_type": "supplier_of",
+      "target_id": "TGT-001",
+      "evidence": [
+        {
+          "detail": "Supplier reference listed on example.com",
+          "url": "https://example.com/partners"
+        }
+      ]
+    }
+  ]
+}
