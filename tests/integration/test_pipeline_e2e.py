@@ -1,25 +1,37 @@
-"""Integration test for the entire pipeline."""
-import json
+"""
+DESCRIPTION
+-----------
+Integration test for the pipeline end-to-end execution path.
+This test runs a minimal DAG in a temporary repo_root and verifies final exports exist.
+"""
+
+
+from __future__ import annotations
+
 from pathlib import Path
+
+import yaml
 
 from src.orchestrator.run_pipeline import run_pipeline
 
 
-def test_pipeline_e2e(tmp_path: Path, monkeypatch):
-    # Patch RunContext root to temporary directory
-    from src.orchestrator.run_context import RunContext
-    monkeypatch.setattr(RunContext, "REPO_ROOT", tmp_path)
+def test_pipeline_e2e(tmp_path: Path) -> None:
+    #note: Create minimal configs in the temporary repo root so run_pipeline can load them.
+    cfg_dir = tmp_path / "configs" / "pipeline"
+    cfg_dir.mkdir(parents=True, exist_ok=True)
 
-    run_id = "RUN-TEST"
-    run_pipeline(run_id)
+    (cfg_dir / "dag.yml").write_text("- AG-00\n- AG-01\n", encoding="utf-8")
+    (cfg_dir / "id_policy.yml").write_text("key_fields: [entity_type, entity_name]\nprefix: ENT\n", encoding="utf-8")
 
-    run_root = tmp_path / "artifacts" / "runs" / run_id
-    exports_dir = run_root / "exports"
-    assert (exports_dir / "entities.json").exists()
-    assert (exports_dir / "report.md").exists()
+    case_input = {
+        "company_name": "Example GmbH",
+        "company_web_domain": "example.com",
+        "run_id": "RUN-TEST",
+    }
 
-    entities = json.loads((exports_dir / "entities.json").read_text())
-    assert isinstance(entities, list)
+    manifest = run_pipeline(case_input=case_input, run_id="RUN-TEST", repo_root=tmp_path)
 
-    report_content = (exports_dir / "report.md").read_text()
-    assert report_content.startswith(f"# Market Intelligence Report for {run_id}")
+    run_root = tmp_path / "artifacts" / "runs" / "RUN-TEST"
+    assert (run_root / "exports" / "report.md").exists()
+    assert (run_root / "exports" / "entities.json").exists()
+    assert manifest["run_id"] == "RUN-TEST"

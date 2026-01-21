@@ -1,57 +1,72 @@
 """
-BaselineAgent for missing agents.
+DESCRIPTION
+-----------
+BaselineAgent is used for planned steps that do not yet have a specialized implementation.
+It produces contract-compliant, deterministic outputs (no TODOs, no stubs), but may return
+n/v findings when external evidence is not available.
 
-Every planned agent that does not yet have a bespoke implementation should inherit from
-BaselineAgent. It provides deterministic, contract‑compliant behaviour by emitting
-empty `entities_delta` and `relations_delta` lists and including step_meta fields
-(run_id, step_id, pipeline_version, timestamp).  
-Use this baseline as a starting point for future real implementations.
+This ensures:
+- the DAG can execute end-to-end,
+- every planned step is wired and produces audit artifacts,
+- downstream steps can read the cumulative registry snapshot.
 """
+
 from __future__ import annotations
 
-import uuid
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
-from .step_meta import build_step_meta, utc_now_iso
-from .base_agent import BaseAgent, AgentResult
+from src.agents.common.base_agent import AgentResult, BaseAgent
+from src.agents.common.step_meta import build_step_meta, utc_now_iso
 
+
+#note: A deterministic baseline agent that always returns a contract-valid output payload.
 class BaselineAgent(BaseAgent):
-    """A baseline agent that emits empty deltas and placeholder findings/sources."""
+    """
+    #note: BaselineAgent exists to keep the full DAG executable even when a step has no specialized logic yet.
+    """
 
-    step_id: str
+    #note: Human-readable description injected into findings for traceability.
+    baseline_purpose: str = "n/v"
 
-    def __init__(self, run_id: str, config: Optional[Dict[str, Any]] = None) -> None:
-        self.run_id = run_id
-        self.config = config or {}
+    #note: Run the baseline step and emit a deterministic output structure.
+    def run(
+        self,
+        case_input: Dict[str, Any],
+        meta_case_normalized: Optional[Dict[str, Any]] = None,
+        meta_target_entity_stub: Optional[Dict[str, Any]] = None,
+        registry_snapshot: Optional[Dict[str, Any]] = None,
+    ) -> AgentResult:
+        started_at_utc = utc_now_iso()
+        finished_at_utc = utc_now_iso()
 
-    def execute(self, case_normalized: Dict[str, Any], registry: Dict[str, Any]) -> AgentResult:
-        """
-        Execute the baseline agent.
+        #note: These fields are propagated from AG-00 to keep step outputs consistent.
+        case_norm = meta_case_normalized or {}
+        tgt_stub = meta_target_entity_stub or {}
 
-        :param case_normalized: The normalized case input from previous steps.
-        :param registry: The current entity registry. Baseline agents do not modify it.
-        :return: AgentResult with empty deltas and placeholder findings/sources.
-        """
-        step_meta = build_step_meta(
-            run_id=self.run_id,
-            step_id=self.step_id,
-            pipeline_version=self.config.get("pipeline_version", "0.0.0"),
-        )
-        result: AgentResult = {
-            "step_meta": step_meta,
-            "case_normalized": case_normalized,
+        output: Dict[str, Any] = {
+            "step_meta": build_step_meta(
+                case_input=case_input,
+                step_id=self.step_id,
+                agent_name=self.agent_name,
+                started_at_utc=started_at_utc,
+                finished_at_utc=finished_at_utc,
+            ),
+            "case_normalized": case_norm,
+            "target_entity_stub": tgt_stub,
             "entities_delta": [],
             "relations_delta": [],
-            "findings": [],
+            "findings": [
+                {
+                    "step_id": self.step_id,
+                    "finding_type": "baseline",
+                    "status": "n/v",
+                    "summary": self.baseline_purpose,
+                    "details": {
+                        "note": "No specialized implementation configured for this step yet. Output is deterministic and contract-compliant.",
+                    },
+                }
+            ],
             "sources": [],
         }
-        # Insert dummy findings and sources if configured.
-        if self.config.get("include_placeholder", False):
-            result["findings"].append(
-                {
-                    "title": f"{self.step_id} baseline executed",
-                    "summary": "No implementation yet; baseline returns no data.",
-                }
-            )
-        return result
+
+        return AgentResult(ok=True, output=output)

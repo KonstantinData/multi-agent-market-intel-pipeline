@@ -1,5 +1,3 @@
-# Execution order for pipeline steps.
-# Each entry corresponds to a step ID defined in src/orchestrator/step_registry.py.
 - AG-00
 - AG-01
 - AG-10
@@ -9,15 +7,18 @@
 - AG-30
 - AG-31
 - AG-40
+- AG-41
 - AG-42
 - AG-50
 - AG-51
 - AG-60
 - AG-61
+- AG-62
 - AG-70
 - AG-71
 - AG-72
 - AG-80
 - AG-81
+- AG-82
 - AG-83
 - AG-90
