@@ -280,6 +280,7 @@ def _prepare_run_root(
     run_id: str,
     overwrite: bool,
     backup_existing: bool,
+    case_file: Path | None = None,
 ) -> Path:
     run_root = repo_root / "artifacts" / "runs" / run_id
     if run_root.exists() and any(run_root.iterdir()):
@@ -288,6 +289,8 @@ def _prepare_run_root(
         elif backup_existing:
             backup_root = _next_backup_path(run_root)
             shutil.move(str(run_root), str(backup_root))
+        elif case_file and case_file.exists() and run_root in case_file.parents:
+            return run_root
         else:
             raise SystemExit(
                 "Run directory already exists and is not empty. "
@@ -315,11 +318,13 @@ def main() -> None:
     args = parser.parse_args()
 
     repo_root = Path(__file__).resolve().parents[2]
+    case_file_path = Path(args.case_file).resolve()
     _prepare_run_root(
         repo_root=repo_root,
         run_id=args.run_id,
         overwrite=args.overwrite,
         backup_existing=args.backup_existing,
+        case_file=case_file_path,
     )
     ctx = RunContext.from_run_id(repo_root=repo_root, run_id=args.run_id)
 
@@ -327,12 +332,11 @@ def main() -> None:
     log_line(log_path, f"PIPELINE START run_id={ctx.run_id}")
 
     case_input = read_case_input(
-        args.case_file,
+        str(case_file_path),
         pipeline_version_override=args.pipeline_version,
         log_path=log_path,
     )
     case_input["run_id"] = ctx.run_id
-    case_file_path = Path(args.case_file)
     log_line(
         log_path, f"Loaded case_file run_id={ctx.run_id} file={case_file_path.name}"
     )
