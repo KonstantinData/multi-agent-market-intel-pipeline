@@ -186,6 +186,7 @@ steps:
       required_meta_artifacts:
         - "case_normalized.json"
         - "target_entity_stub.json"
+        - "company_size_profile.json"
     outputs:
       required_sections:
         - "step_meta"
@@ -205,6 +206,7 @@ steps:
       hard_fail_if:
         - "missing_required_sections"
         - "missing_required_fields"
+        - "missing_company_size_profile"
 
   - step_id: "AG-21"
     agent_name: "ag21_financial_development"

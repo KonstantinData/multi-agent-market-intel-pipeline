@@ -9,7 +9,7 @@ import json
 from datetime import datetime, timezone
 from typing import Dict, List, Any, Optional
 
-from ..common.base_agent import BaseAgent
+from ..common.base_agent import BaseAgent, AgentResult
 from ..common.source_capture import SourceCapture
 
 
@@ -30,19 +30,27 @@ class AG21FinancialDevelopment(BaseAgent):
         self.agent_name = "ag21_financial_development"
         self.source_capture = SourceCapture()
     
-    def execute(self, case_normalized: Dict[str, Any], target_entity_stub: Dict[str, Any]) -> Dict[str, Any]:
+    def run(
+        self,
+        case_input: Dict[str, Any],
+        meta_case_normalized: Dict[str, Any],
+        meta_target_entity_stub: Dict[str, Any],
+        registry_snapshot: Optional[Dict[str, Any]] = None,
+    ) -> AgentResult:
         """
         Execute financial development research for the target company.
         
         Args:
-            case_normalized: Normalized case input
-            target_entity_stub: Target entity information
+            case_input: Original case input
+            meta_case_normalized: Normalized case input from AG-00
+            meta_target_entity_stub: Target entity information from AG-00
+            registry_snapshot: Current registry state
             
         Returns:
-            Structured financial development output
+            AgentResult with financial development output
         """
-        company_name = case_normalized.get("company_name_canonical", "")
-        domain = case_normalized.get("web_domain_normalized", "")
+        company_name = meta_case_normalized.get("company_name_canonical", "")
+        domain = meta_case_normalized.get("web_domain_normalized", "")
         
         # Initialize output structure
         output = {
@@ -60,7 +68,7 @@ class AG21FinancialDevelopment(BaseAgent):
             # Update entities with financial information
             if financial_data:
                 output["entities_delta"] = {
-                    "entity_key": target_entity_stub.get("entity_key", ""),
+                    "entity_key": meta_target_entity_stub.get("entity_key", ""),
                     "financial_profile": financial_data["profile"]
                 }
                 
@@ -71,7 +79,7 @@ class AG21FinancialDevelopment(BaseAgent):
             self.logger.error(f"Error in AG-21 execution: {str(e)}")
             output["findings"] = {"error": f"Financial research failed: {str(e)}"}
         
-        return output
+        return AgentResult(ok=True, output=output)
     
     def _research_financial_metrics(self, company_name: str, domain: str) -> Optional[Dict[str, Any]]:
         """

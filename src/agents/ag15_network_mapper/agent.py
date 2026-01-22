@@ -9,7 +9,7 @@ import json
 from datetime import datetime, timezone
 from typing import Dict, List, Any, Optional
 
-from ..common.base_agent import BaseAgent
+from ..common.base_agent import BaseAgent, AgentResult
 from ..common.source_capture import SourceCapture
 
 
@@ -30,19 +30,27 @@ class AG15NetworkMapper(BaseAgent):
         self.source_capture = SourceCapture()
         self.core_industries = ["Medical Technology", "Mechanical Engineering", "Electrical Engineering"]
     
-    def execute(self, case_normalized: Dict[str, Any], target_entity_stub: Dict[str, Any]) -> Dict[str, Any]:
+    def run(
+        self,
+        case_input: Dict[str, Any],
+        meta_case_normalized: Dict[str, Any],
+        meta_target_entity_stub: Dict[str, Any],
+        registry_snapshot: Optional[Dict[str, Any]] = None,
+    ) -> AgentResult:
         """
         Execute network mapping for the target company.
         
         Args:
-            case_normalized: Normalized case input
-            target_entity_stub: Target entity information
+            case_input: Original case input
+            meta_case_normalized: Normalized case input from AG-00
+            meta_target_entity_stub: Target entity information from AG-00
+            registry_snapshot: Current registry state
             
         Returns:
-            Structured network mapping output
+            AgentResult with network mapping output
         """
-        company_name = case_normalized.get("company_name_canonical", "")
-        domain = case_normalized.get("web_domain_normalized", "")
+        company_name = meta_case_normalized.get("company_name_canonical", "")
+        domain = meta_case_normalized.get("web_domain_normalized", "")
         
         # Initialize output structure
         output = {
@@ -55,7 +63,7 @@ class AG15NetworkMapper(BaseAgent):
         
         try:
             # Perform network research
-            network_data = self._research_network_connections(company_name, domain, target_entity_stub)
+            network_data = self._research_network_connections(company_name, domain, meta_target_entity_stub)
             
             if network_data:
                 output["entities_delta"] = network_data["entities"]
@@ -67,7 +75,7 @@ class AG15NetworkMapper(BaseAgent):
             self.logger.error(f"Error in AG-15 execution: {str(e)}")
             output["findings"] = {"error": f"Network mapping failed: {str(e)}"}
         
-        return output
+        return AgentResult(ok=True, output=output)
     
     def _research_network_connections(self, company_name: str, domain: str, target_entity: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
