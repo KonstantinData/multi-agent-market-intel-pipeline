@@ -84,29 +84,34 @@ def _strip_html(html: str) -> str:
 
 # NOTE: Fetches HTML pages from well-known paths under the target domain and returns extracted plain-text evidences.
 def _fetch_pages(domain: str, paths: List[str], timeout_s: float = 10.0) -> List[PageEvidence]:
-    base_url = f"https://{domain}"
+    # Try both domain variants to handle www/non-www differences
+    base_urls = [f"https://{domain}", f"https://www.{domain}"]
     evidences: List[PageEvidence] = []
 
     with httpx.Client(follow_redirects=True, timeout=timeout_s) as client:
-        for p in paths:
-            url = f"{base_url}{p}"
-            try:
-                resp = client.get(url, headers={"User-Agent": "market-intel-pipeline/1.0"})
-            except Exception:
-                continue
+        for base_url in base_urls:
+            for p in paths:
+                url = f"{base_url}{p}"
+                try:
+                    resp = client.get(url, headers={"User-Agent": "market-intel-pipeline/1.0"})
+                except Exception:
+                    continue
 
-            if resp.status_code != 200:
-                continue
+                if resp.status_code != 200:
+                    continue
 
-            ct = str(resp.headers.get("content-type", "")).lower()
-            if "text/html" not in ct and "application/xhtml+xml" not in ct:
-                continue
+                ct = str(resp.headers.get("content-type", "")).lower()
+                if "text/html" not in ct and "application/xhtml+xml" not in ct:
+                    continue
 
-            text = _strip_html(resp.text)
-            if not text:
-                continue
+                text = _strip_html(resp.text)
+                if not text:
+                    continue
 
-            evidences.append(PageEvidence(url=url, text=text))
+                evidences.append(PageEvidence(url=url, text=text))
+                
+                # If we got content from this path, don't try the same path on other host variants
+                break
 
     return evidences
 
@@ -146,11 +151,19 @@ def _extract_founding_year(text: str) -> str:
         re.compile(r"\bsince\b\s*(19\d{2}|20\d{2})", re.IGNORECASE),
         re.compile(r"\bgegruendet\b\s*(?:im\s*)?(19\d{2}|20\d{2})", re.IGNORECASE),
         re.compile(r"\bseit\b\s*(19\d{2}|20\d{2})", re.IGNORECASE),
+        # Additional German patterns
+        re.compile(r"\bgruendung\b\s*(?:im\s*)?(19\d{2}|20\d{2})", re.IGNORECASE),
+        re.compile(r"\bgruendungsjahr\b\s*:?\s*(19\d{2}|20\d{2})", re.IGNORECASE),
+        # More flexible patterns
+        re.compile(r"\b(19\d{2}|20\d{2})\b.*\b(?:founded|established|gegruendet|gruendung)", re.IGNORECASE),
     ]
     for pat in patterns:
         m = pat.search(text)
         if m:
-            return m.group(1)
+            # Extract the year from the match
+            year_match = re.search(r"(19\d{2}|20\d{2})", m.group(0))
+            if year_match:
+                return year_match.group(1)
     return "n/v"
 
 
@@ -510,22 +523,22 @@ def _sanitize_llm_outputs(parsed: Dict[str, Any], evidence_text: str) -> Tuple[s
     raw_founding_year = _to_ascii(str(parsed.get("founding_year", "n/v"))).strip() or "n/v"
     raw_registration = _to_ascii(str(parsed.get("registration_signals", "n/v"))).strip() or "n/v"
 
-    # Less strict validation - allow reasonable inferences
+    # Evidence-based validation with reasonable flexibility
     if raw_legal_name != "n/v":
-        # Check if core company name parts are in evidence
-        name_parts = [part.strip() for part in raw_legal_name.replace(",", " ").split() if len(part.strip()) > 2]
-        if name_parts and any(_normalize_for_contains(part) in ev_norm for part in name_parts):
-            # Keep the name if any significant part is found
+        # Check if significant parts of the name appear in evidence
+        name_words = [w.strip() for w in raw_legal_name.replace(",", " ").split() if len(w.strip()) > 2]
+        if name_words and any(_normalize_for_contains(word) in ev_norm for word in name_words[:3]):
+            # Keep if core name parts found in evidence
             pass
         else:
             raw_legal_name = "n/v"
 
     if raw_legal_form != "n/v":
-        # Legal forms are often abbreviated or styled differently
-        common_forms = ["gmbh", "ag", "se", "kg", "kgaa", "inc", "ltd", "llc", "corp"]
-        form_lower = raw_legal_form.lower().replace(".", "").replace("&", "").strip()
-        if any(form in ev_norm for form in common_forms if form in form_lower):
-            # Keep if any common legal form is found
+        # Check for legal form markers in evidence
+        form_normalized = _normalize_for_contains(raw_legal_form)
+        legal_forms = ["gmbh", "ag", "se", "kg", "kgaa", "ug", "ohg", "inc", "ltd", "llc", "corp", "plc"]
+        if any(form in form_normalized for form in legal_forms) and any(form in ev_norm for form in legal_forms):
+            # Keep if legal form type found in evidence
             pass
         else:
             raw_legal_form = "n/v"
@@ -533,16 +546,17 @@ def _sanitize_llm_outputs(parsed: Dict[str, Any], evidence_text: str) -> Tuple[s
     if raw_founding_year != "n/v":
         m = re.search(r"\b(18\d{2}|19\d{2}|20\d{2})\b", raw_founding_year)
         year = m.group(1) if m else None
-        if year and (year in evidence_text or year in ev_norm):
+        if year and year in evidence_text:
             raw_founding_year = year
         else:
             raw_founding_year = "n/v"
 
     if raw_registration != "n/v":
-        markers = ("handelsregister", "commercial register", "registergericht", "amtsgericht", "hrb", "hra")
-        lowered = raw_registration.lower()
-        if any(marker in lowered for marker in markers) or any(marker in ev_norm for marker in markers):
-            # Keep if registration markers are present
+        # Check for registration markers
+        reg_markers = ["handelsregister", "hrb", "hra", "registergericht", "amtsgericht"]
+        reg_lower = raw_registration.lower()
+        if any(marker in reg_lower for marker in reg_markers) and any(marker in ev_norm for marker in reg_markers):
+            # Keep if registration markers found
             pass
         else:
             raw_registration = "n/v"
@@ -618,6 +632,13 @@ class AgentAG10IdentityLegal(BaseAgent):
             "/about",
             "/kontakt",
             "/contact",
+            # Additional paths for founding year research
+            "/unternehmen",
+            "/company",
+            "/historie",
+            "/history",
+            "/ueber-uns",
+            "/about-us",
         ]
 
         pages = _fetch_pages(domain=domain, paths=candidate_paths)
@@ -675,10 +696,30 @@ class AgentAG10IdentityLegal(BaseAgent):
         phone_number = _extract_phone_number(full_text)
         socials = _extract_socials(full_text)
 
+        # Use case_input data if available and evidence extraction failed
+        if city == "n/v" and case_input.get("city"):
+            city = _to_ascii(str(case_input["city"])).strip()
+        if postal_code == "n/v" and case_input.get("postal_code"):
+            postal_code = _to_ascii(str(case_input["postal_code"])).strip()
+        if street_address == "n/v" and case_input.get("street_address"):
+            street_address = _to_ascii(str(case_input["street_address"])).strip()
+        if phone_number == "n/v" and case_input.get("phone_number"):
+            phone_number = _to_ascii(str(case_input["phone_number"])).strip()
+
         # Fields typically not reliably extractable in AG-10 without dedicated research steps
-        state_region = "n/v"
+        state_region = case_input.get("state_region", "n/v")
+        if state_region and state_region != "n/v":
+            state_region = _to_ascii(str(state_region)).strip()
+        else:
+            state_region = "n/v"
+            
         parent_company_id = "n/v"
-        industry = "n/v"
+        industry = case_input.get("industry", "n/v")
+        if industry and industry != "n/v":
+            industry = _to_ascii(str(industry)).strip()
+        else:
+            industry = "n/v"
+            
         description = "n/v"
 
         # If we produce any claimed fields, ensure we have at least one evidence URL anchor.

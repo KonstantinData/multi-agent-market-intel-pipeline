@@ -107,6 +107,9 @@ class IntakeCase:
     # Optional
     city: Optional[str] = None
     postal_code: Optional[str] = None
+    street_address: Optional[str] = None
+    phone_number: Optional[str] = None
+    industry: Optional[str] = None
     country: Optional[str] = None
     parent_company: Optional[str] = None
     child_company: Optional[str] = None
@@ -386,11 +389,14 @@ with tab_intake:
     with col1:
         city = st.text_input("City", placeholder="Stuttgart", key="intake_city")
         postal_code = st.text_input("Postal code", placeholder="70173", key="intake_postal")
+        street_address = st.text_input("Street Address", placeholder="Musterstraße 123", key="intake_street")
     with col2:
         country = st.text_input("Country", placeholder="Germany", key="intake_country")
         parent_company = st.text_input("Parent company", placeholder="n/v", key="intake_parent")
+        phone_number = st.text_input("Phone Number", placeholder="+49 711 123456", key="intake_phone")
     with col3:
         child_company = st.text_input("Child company", placeholder="n/v", key="intake_child")
+        industry = st.text_input("Industry", placeholder="Manufacturing", key="intake_industry")
 
     # Live normalization preview (no artifacts written yet)
     company_name_canonical = normalize_whitespace(company_name_raw)
@@ -450,6 +456,9 @@ with tab_intake:
             web_domain=domain_normalized,
             city=normalize_whitespace(city) or None,
             postal_code=normalize_whitespace(postal_code) or None,
+            street_address=normalize_whitespace(street_address) or None,
+            phone_number=normalize_whitespace(phone_number) or None,
+            industry=normalize_whitespace(industry) or None,
             country=normalize_whitespace(country) or None,
             parent_company=normalize_whitespace(parent_company) or None,
             child_company=normalize_whitespace(child_company) or None,
@@ -589,6 +598,9 @@ with tab_monitor:
             e_web_domain = st.text_input("Web domain *", value=str(current_payload.get("web_domain", "")))
             e_city = st.text_input("City", value=str(current_payload.get("city") or ""))
             e_postal = st.text_input("Postal code", value=str(current_payload.get("postal_code") or ""))
+            e_street = st.text_input("Street Address", value=str(current_payload.get("street_address") or ""))
+            e_phone = st.text_input("Phone Number", value=str(current_payload.get("phone_number") or ""))
+            e_industry = st.text_input("Industry", value=str(current_payload.get("industry") or ""))
             e_country = st.text_input("Country", value=str(current_payload.get("country") or ""))
             e_parent = st.text_input("Parent company", value=str(current_payload.get("parent_company") or ""))
             e_child = st.text_input("Child company", value=str(current_payload.get("child_company") or ""))
@@ -611,6 +623,9 @@ with tab_monitor:
                 "web_domain": normalize_domain(e_web_domain),
                 "city": normalize_whitespace(e_city) or None,
                 "postal_code": normalize_whitespace(e_postal) or None,
+                "street_address": normalize_whitespace(e_street) or None,
+                "phone_number": normalize_whitespace(e_phone) or None,
+                "industry": normalize_whitespace(e_industry) or None,
                 "country": normalize_whitespace(e_country) or None,
                 "parent_company": normalize_whitespace(e_parent) or None,
                 "child_company": normalize_whitespace(e_child) or None,
