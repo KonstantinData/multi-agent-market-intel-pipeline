@@ -460,7 +460,7 @@ def _openai_extract_legal_identity(evidence_text: str, api_key: str, timeout_s: 
     }
 
     payload = {
-        "model": "gpt-4o-mini",
+        "model": "gpt-4o",
         "messages": [
             {
                 "role": "system",

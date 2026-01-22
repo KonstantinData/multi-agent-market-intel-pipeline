@@ -154,7 +154,7 @@ Provide specific numbers where available, otherwise indicate 'n/v'.
             }
             
             payload = {
-                "model": "gpt-4o-mini",
+                "model": "gpt-4o",
                 "messages": [
                     {
                         "role": "system",

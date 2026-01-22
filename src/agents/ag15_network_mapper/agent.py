@@ -222,7 +222,7 @@ Focus on companies in the same or related industries.
             }
             
             payload = {
-                "model": "gpt-4o-mini",
+                "model": "gpt-4o",
                 "messages": [
                     {
                         "role": "system",
