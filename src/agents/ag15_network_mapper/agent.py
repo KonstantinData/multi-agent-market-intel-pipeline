@@ -5,9 +5,8 @@ Responsible for expanding the lead universe by identifying related companies
 based on the Intake Company's business segment and customer base.
 """
 
-import json
 from datetime import datetime, timezone
-from typing import Dict, List, Any, Optional
+from typing import Dict, Any, Optional
 
 from ..common.base_agent import BaseAgent, AgentResult
 from ..common.source_capture import SourceCapture

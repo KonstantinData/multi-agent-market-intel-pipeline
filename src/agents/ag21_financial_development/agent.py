@@ -5,9 +5,8 @@ Specialized data harvester for financial stability and historical development
 of target companies in Medical Technology, Mechanical Engineering, and Electrical Engineering sectors.
 """
 
-import json
 from datetime import datetime, timezone
-from typing import Dict, List, Any, Optional
+from typing import Dict, Any, Optional
 
 from ..common.base_agent import BaseAgent, AgentResult
 from ..common.source_capture import SourceCapture
