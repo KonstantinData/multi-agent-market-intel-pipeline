@@ -19,230 +19,119 @@ class PageEvidence:
     text: str
 
 
-def _utc_now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-
-
 def _to_ascii(text: str) -> str:
-    if text is None:
-        return ""
-    s = str(text)
-    s = (s.replace("ä", "ae")
-           .replace("ö", "oe")
-           .replace("ü", "ue")
-           .replace("Ä", "Ae")
-           .replace("Ö", "Oe")
-           .replace("Ü", "Ue")
-           .replace("ß", "ss"))
-    s = s.encode("ascii", errors="ignore").decode("ascii")
-    return s
-
-
-def _strip_html(html: str) -> str:
-    html = re.sub(r"<script[\s\S]*?</script>", " ", html, flags=re.IGNORECASE)
-    html = re.sub(r"<style[\s\S]*?</style>", " ", html, flags=re.IGNORECASE)
-    html = re.sub(r"<(br|p|div|li|tr|h\d)[^>]*>", "\n", html, flags=re.IGNORECASE)
-    text = re.sub(r"<[^>]+>", " ", html)
-    text = text.replace("&nbsp;", " ")
-    text = text.replace("&amp;", "&")
-    text = text.replace("&lt;", "<")
-    text = text.replace("&gt;", ">")
-    text = re.sub(r"[\t\r ]+", " ", text)
-    text = re.sub(r"\n+", "\n", text)
-    return text.strip()
-
-
-def _fetch_pages(domain: str, paths: List[str], timeout_s: float = 10.0) -> List[PageEvidence]:
-    base_url = f"https://{domain}"
-    evidences: List[PageEvidence] = []
-
-    with httpx.Client(follow_redirects=True, timeout=timeout_s) as client:
-        for p in paths:
-            url = f"{base_url}{p}"
-            try:
-                resp = client.get(url, headers={"User-Agent": "market-intel-pipeline/1.0"})
-            except Exception:
-                continue
-
-            if resp.status_code != 200:
-                continue
-
-            ct = str(resp.headers.get("content-type", "")).lower()
-            if "text/html" not in ct and "application/xhtml+xml" not in ct:
-                continue
-
-            text = _strip_html(resp.text)
-            if not text:
-                continue
-
-            evidences.append(PageEvidence(url=url, text=text))
-
-    return evidences
-
-
-def _normalize_number(token: str) -> str:
-    return token.replace(",", "").strip()
-
-
-def _has_guess_language(text: str) -> bool:
-    return bool(re.search(r"\b(approx|approximately|about|around|estimated|estimate)\b", text, re.IGNORECASE))
-
-
-def _extract_employee_range(line: str) -> Optional[str]:
-    lowered = line.lower()
-    if not re.search(r"\b(employees|employee|staff|people|team|headcount)\b", lowered):
-        return None
-    if _has_guess_language(lowered):
-        return None
-
-    range_match = re.search(
-        r"(\d{1,3}(?:,\d{3})*)\s*(?:-|to)\s*(\d{1,3}(?:,\d{3})*)\s*(?:employees|staff|people|team|headcount)",
-        lowered,
-    )
-    if range_match:
-        start = _normalize_number(range_match.group(1))
-        end = _normalize_number(range_match.group(2))
-        return f"{start}-{end} employees"
-
-    plus_match = re.search(
-        r"(?:over|more than|at least)\s*(\d{1,3}(?:,\d{3})*)\s*(?:employees|staff|people|team|headcount)",
-        lowered,
-    )
-    if plus_match:
-        start = _normalize_number(plus_match.group(1))
-        return f"{start}+ employees"
-
-    plus_sign_match = re.search(
-        r"(\d{1,3}(?:,\d{3})*)\s*\+\s*(?:employees|staff|people|team|headcount)",
-        lowered,
-    )
-    if plus_sign_match:
-        start = _normalize_number(plus_sign_match.group(1))
-        return f"{start}+ employees"
-
-    single_match = re.search(
-        r"(\d{1,3}(?:,\d{3})*)\s*(?:employees|staff|people|team|headcount)",
-        lowered,
-    )
-    if single_match:
-        count = _normalize_number(single_match.group(1))
-        return f"{count} employees"
-
-    return None
-
-
-def _extract_revenue_band(line: str) -> Optional[str]:
-    lowered = line.lower()
-    if not re.search(r"\b(revenue|turnover|sales)\b", lowered):
-        return None
-    if _has_guess_language(lowered):
-        return None
-
-    currency_range = re.search(
-        r"([€$£]|eur|usd|gbp)?\s*(\d+(?:[\.,]\d+)?)\s*(m|bn|b|million|billion)?\s*"
-        r"(?:-|to)\s*([€$£]|eur|usd|gbp)?\s*(\d+(?:[\.,]\d+)?)\s*(m|bn|b|million|billion)?",
-        lowered,
-    )
-    if currency_range:
-        cur = currency_range.group(1) or currency_range.group(4) or ""
-        start = currency_range.group(2)
-        end = currency_range.group(5)
-        unit = currency_range.group(3) or currency_range.group(6) or ""
-        unit = unit.replace("million", "m").replace("billion", "b")
-        cur = cur.upper() if cur else ""
-        if cur and cur.isalpha():
-            cur = cur.upper()
-        return f"{cur}{start}-{end}{unit}".strip()
-
-    return None
-
-
-def _extract_market_scope(line: str) -> Optional[str]:
-    lowered = line.lower()
-    if re.search(r"\b(global|worldwide|international|multinational)\b", lowered):
-        return "global"
-    if re.search(r"\b(emea|apac|americas|europe|asia|north america|south america)\b", lowered):
-        return "regional"
-    if re.search(r"\b(national|nationwide)\b", lowered):
-        return "national"
-    if re.search(r"\b(local|regional)\b", lowered):
-        return "local"
-    return None
+    try:
+        return text.encode("utf-8", errors="ignore").decode("utf-8")
+    except Exception:
+        return text
 
 
 def _dedupe_sources(sources: List[Dict[str, str]]) -> List[Dict[str, str]]:
     seen = set()
-    deduped: List[Dict[str, str]] = []
+    out: List[Dict[str, str]] = []
     for s in sources:
-        url = s.get("url", "")
-        if not url or url in seen:
-            continue
-        seen.add(url)
-        deduped.append(s)
-    return deduped
+        url = str(s.get("url", "")).strip()
+        publisher = str(s.get("publisher", "")).strip()
+        key = (publisher, url)
+        if url and publisher and key not in seen:
+            seen.add(key)
+            out.append({"publisher": publisher, "url": url, "accessed_at_utc": s.get("accessed_at_utc", utc_now_iso())})
+    return out
 
 
-def _openai_api_key() -> str:
-    return os.getenv("OPEN-AI-KEY", "").strip() or os.getenv("OPENAI_API_KEY", "").strip()
-
-
-def _openai_extract_signals(text: str, api_key: str, timeout_s: float = 20.0) -> Dict[str, str]:
-    if not text.strip():
-        return {
-            "employee_range": "n/v",
-            "revenue_band": "n/v",
-            "market_scope_signal": "n/v",
-        }
-
-    payload = {
-        "model": "gpt-4o-mini",
-        "messages": [
-            {
-                "role": "system",
-                "content": (
-                    "Extract company size signals only from the provided text. "
-                    "Return JSON with keys: employee_range, revenue_band, market_scope_signal. "
-                    "Use 'n/v' if the text does not explicitly state the signal. "
-                    "No estimates or guesses."
-                ),
-            },
-            {"role": "user", "content": text[:12000]},
-        ],
-        "temperature": 0,
-    }
-
-    headers = {"Authorization": f"Bearer {api_key}"}
-    with httpx.Client(timeout=timeout_s) as client:
-        resp = client.post("https://api.openai.com/v1/chat/completions", json=payload, headers=headers)
-        resp.raise_for_status()
-        data = resp.json()
-
-    content = (
-        data.get("choices", [{}])[0]
-        .get("message", {})
-        .get("content", "")
-        .strip()
-    )
-    if not content:
-        return {
-            "employee_range": "n/v",
-            "revenue_band": "n/v",
-            "market_scope_signal": "n/v",
-        }
+def _fetch_text(url: str, timeout_s: float = 15.0) -> Optional[str]:
     try:
-        parsed = json.loads(content)
-    except json.JSONDecodeError:
-        return {
-            "employee_range": "n/v",
-            "revenue_band": "n/v",
-            "market_scope_signal": "n/v",
-        }
+        with httpx.Client(timeout=timeout_s, follow_redirects=True) as client:
+            r = client.get(url, headers={"User-Agent": "Mozilla/5.0"})
+            if r.status_code != 200:
+                return None
+            ct = r.headers.get("content-type", "")
+            if "text/html" not in ct and "text/plain" not in ct and "application/xhtml+xml" not in ct:
+                return None
+            return r.text
+    except Exception:
+        return None
+
+
+def _strip_html_to_text(html: str) -> str:
+    # Minimal HTML->text normalization (non-OCR, deterministic)
+    text = re.sub(r"(?is)<script.*?>.*?</script>", " ", html)
+    text = re.sub(r"(?is)<style.*?>.*?</style>", " ", text)
+    text = re.sub(r"(?is)<[^>]+>", " ", text)
+    text = re.sub(r"\s+", " ", text)
+    return text.strip()
+
+
+def _extract_size_signals(text: str) -> Dict[str, Any]:
+    """
+    Extracts low-stakes "signals" only (no hard claims):
+      - employee count pattern hits
+      - revenue pattern hits
+      - generic size keywords
+    """
+    t = text.lower()
+
+    employees_hits = []
+    revenue_hits = []
+    keyword_hits = []
+
+    # Employees patterns (very permissive; treated as "signals")
+    emp_patterns = [
+        r"\b(\d{2,6})\s*(employees|employee|mitarbeiter|mitarbeitende|mitarbeiterinnen|staff)\b",
+        r"\b(employees|employee|mitarbeiter|mitarbeitende|staff)\s*[:\-]?\s*(\d{2,6})\b",
+    ]
+    for pat in emp_patterns:
+        for m in re.finditer(pat, t):
+            employees_hits.append(m.group(0))
+
+    # Revenue patterns (signals, not canonical financials)
+    rev_patterns = [
+        r"\b(revenue|umsatz|turnover)\s*[:\-]?\s*(€|\$|eur|usd)?\s*\d[\d\.,]*\s*(m|mn|million|mio|b|bn|billion|mrd)?\b",
+        r"\b(€|\$)\s*\d[\d\.,]*\s*(m|mn|million|mio|b|bn|billion|mrd)\b",
+    ]
+    for pat in rev_patterns:
+        for m in re.finditer(pat, t):
+            revenue_hits.append(m.group(0))
+
+    # Generic size keywords (signals)
+    size_keywords = [
+        "global",
+        "worldwide",
+        "international",
+        "multinational",
+        "mid-size",
+        "midsize",
+        "mittelstand",
+        "large",
+        "small",
+        "startup",
+        "family-owned",
+        "familienunternehmen",
+    ]
+    for kw in size_keywords:
+        if kw in t:
+            keyword_hits.append(kw)
 
     return {
-        "employee_range": str(parsed.get("employee_range", "n/v")).strip() or "n/v",
-        "revenue_band": str(parsed.get("revenue_band", "n/v")).strip() or "n/v",
-        "market_scope_signal": str(parsed.get("market_scope_signal", "n/v")).strip() or "n/v",
+        "employees_hits": employees_hits[:20],
+        "revenue_hits": revenue_hits[:20],
+        "keyword_hits": sorted(set(keyword_hits)),
     }
+
+
+def _build_target_update(meta_target_entity_stub: Dict[str, Any], size_signals: Dict[str, Any]) -> Dict[str, Any]:
+    # Non-authoritative enrichment: store signals only
+    update = dict(meta_target_entity_stub)
+
+    # Ensure structure fields exist if stub is minimal
+    update.setdefault("attributes", {})
+    attrs = update["attributes"]
+    if not isinstance(attrs, dict):
+        attrs = {}
+        update["attributes"] = attrs
+
+    attrs["company_size_signals"] = size_signals
+    return update
 
 
 class AgentAG20CompanySize(BaseAgent):
@@ -265,117 +154,59 @@ class AgentAG20CompanySize(BaseAgent):
 
         candidate_paths = [
             "/about",
-            "/about-us",
             "/company",
-            "/profile",
-            "/overview",
+            "/unternehmen",
+            "/about-us",
+            "/aboutus",
             "/facts",
             "/facts-and-figures",
-            "/company-profile",
+            "/facts-figures",
+            "/factsfigures",
+            "/career",
             "/careers",
-            "/jobs",
+            "/karriere",
         ]
 
-        pages = _fetch_pages(domain=domain, paths=candidate_paths)
-
-        employee_range = "n/v"
-        revenue_band = "n/v"
-        market_scope_signal = "n/v"
         used_sources: List[Dict[str, str]] = []
-        evidence_lines: List[str] = []
-        evidence_urls: List[str] = []
-        accessed_at = _utc_now_iso()
+        evidences: List[PageEvidence] = []
 
-        for ev in pages:
-            contributed = False
-            for line in ev.text.split("\n"):
-                l = _to_ascii(line.strip())
-                if not l:
-                    continue
+        base_url = f"https://{domain}".rstrip("/")
+        used_sources.append({"publisher": company_name, "url": base_url, "accessed_at_utc": utc_now_iso()})
 
-                if re.search(r"\b(employees?|staff|people|team|headcount|revenue|turnover|sales|global|worldwide|international|multinational|national|nationwide|local|regional|emea|apac|americas|europe|asia)\b", l, re.IGNORECASE):
-                    evidence_lines.append(f"URL: {ev.url}\nLINE: {l}")
-                    if ev.url:
-                        evidence_urls.append(ev.url)
+        for p in candidate_paths:
+            url = f"{base_url}{p}"
+            html = _fetch_text(url)
+            if not html:
+                continue
+            txt = _strip_html_to_text(html)
+            if not txt or len(txt) < 80:
+                continue
+            evidences.append(PageEvidence(url=url, text=txt))
+            used_sources.append({"publisher": company_name, "url": url, "accessed_at_utc": utc_now_iso()})
 
-                if employee_range == "n/v":
-                    candidate = _extract_employee_range(l)
-                    if candidate:
-                        employee_range = candidate
-                        contributed = True
-
-                if revenue_band == "n/v":
-                    candidate = _extract_revenue_band(l)
-                    if candidate:
-                        revenue_band = candidate
-                        contributed = True
-
-                if market_scope_signal == "n/v":
-                    candidate = _extract_market_scope(l)
-                    if candidate:
-                        market_scope_signal = candidate
-                        contributed = True
-
-                if employee_range != "n/v" and revenue_band != "n/v" and market_scope_signal != "n/v":
-                    break
-
-            if ev.url and contributed:
-                used_sources.append(
-                    {
-                        "publisher": company_name or "Official website",
-                        "url": ev.url,
-                        "accessed_at_utc": accessed_at,
-                    }
-                )
-
-            if employee_range != "n/v" and revenue_band != "n/v" and market_scope_signal != "n/v":
+            # Keep it bounded; we only need a few pages for "signals"
+            if len(evidences) >= 3:
                 break
 
-        api_key = _openai_api_key()
-        if api_key and (employee_range == "n/v" or revenue_band == "n/v" or market_scope_signal == "n/v"):
-            try:
-                llm_text = "\n\n".join(evidence_lines[:200])
-                llm_result = _openai_extract_signals(llm_text, api_key=api_key)
-                if employee_range == "n/v" and llm_result.get("employee_range") not in ("", "n/v"):
-                    employee_range = llm_result["employee_range"]
-                if revenue_band == "n/v" and llm_result.get("revenue_band") not in ("", "n/v"):
-                    revenue_band = llm_result["revenue_band"]
-                if market_scope_signal == "n/v" and llm_result.get("market_scope_signal") not in ("", "n/v"):
-                    market_scope_signal = llm_result["market_scope_signal"]
-            except Exception:
-                pass
-
-        if (employee_range != "n/v" or revenue_band != "n/v" or market_scope_signal != "n/v") and evidence_urls:
-            for url in evidence_urls:
-                used_sources.append(
-                    {
-                        "publisher": company_name or "Official website",
-                        "url": url,
-                        "accessed_at_utc": accessed_at,
-                    }
-                )
-
-        if used_sources:
-            findings_notes = [
-                "Size signals extracted from official company pages.",
-            ]
-        else:
-            findings_notes = [
-                "No verifiable size signals found; all fields set to n/v.",
-            ]
-
-        target_update = {
-            "entity_id": "TGT-001",
-            "entity_type": "target_company",
-            "entity_name": _to_ascii(str(meta_target_entity_stub.get("entity_name", company_name))),
-            "domain": str(meta_target_entity_stub.get("domain", domain)),
-            "entity_key": str(meta_target_entity_stub.get("entity_key", entity_key)),
-            "employee_range": employee_range,
-            "revenue_band": revenue_band,
-            "market_scope_signal": market_scope_signal,
+        combined_text = " ".join([ev.text for ev in evidences]).strip()
+        size_signals = _extract_size_signals(combined_text) if combined_text else {
+            "employees_hits": [],
+            "revenue_hits": [],
+            "keyword_hits": [],
         }
 
+        target_update = _build_target_update(meta_target_entity_stub, size_signals)
+
         finished_at_utc = utc_now_iso()
+
+        findings_notes = {
+            "company_name_canonical": company_name,
+            "web_domain_normalized": domain,
+            "entity_key": entity_key,
+            "reviewed_pages": [ev.url for ev in evidences],
+            "signals": size_signals,
+            "scope_note": "Signals only; no authoritative company size claims are made without corroborating sources.",
+        }
 
         output: Dict[str, Any] = {
             "step_meta": build_step_meta(
@@ -386,6 +217,7 @@ class AgentAG20CompanySize(BaseAgent):
                 finished_at_utc=finished_at_utc,
             ),
             "entities_delta": [target_update],
+            "relations_delta": [],  # REQUIRED by pipeline output contract (even if empty)
             "findings": [
                 {
                     "summary": "Company size signals reviewed",
@@ -397,6 +229,6 @@ class AgentAG20CompanySize(BaseAgent):
 
         return AgentResult(ok=True, output=output)
 
+
 # NOTE: Wiring-safe alias for dynamic loaders expecting `Agent` symbol in this module.
 Agent = AgentAG20CompanySize
-
