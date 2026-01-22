@@ -198,5 +198,6 @@ class AgentAG01SourceRegistry(BaseAgent):
         return AgentResult(ok=True, output=output)
 
 
-#note: Wiring-safe alias for dynamic loaders expecting `Agent` symbol in this module.
+# NOTE: Wiring-safe alias for dynamic loaders expecting `Agent` symbol in this module.
 Agent = AgentAG01SourceRegistry
+

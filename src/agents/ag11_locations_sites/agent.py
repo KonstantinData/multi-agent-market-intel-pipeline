@@ -272,3 +272,6 @@ def _dedupe_search_attempts(attempts: List[Dict[str, str]]) -> List[Dict[str, st
         seen.add(url)
         deduped.append(attempt)
     return deduped
+
+# NOTE: Wiring-safe alias for dynamic loaders expecting `Agent` symbol in this module.
+Agent = AgentAG11LocationsSites

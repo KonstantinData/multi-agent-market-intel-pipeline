@@ -144,5 +144,7 @@ class AgentAG00IntakeNormalization(BaseAgent):
         return AgentResult(ok=True, output=output)
 
 
-#note: Wiring-safe alias for dynamic loaders expecting `Agent` to exist in the module.
+# NOTE: Wiring-safe alias for dynamic loaders expecting `Agent` symbol in this module.
 Agent = AgentAG00IntakeNormalization
+
+

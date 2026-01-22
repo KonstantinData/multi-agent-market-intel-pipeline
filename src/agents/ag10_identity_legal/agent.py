@@ -726,3 +726,4 @@ class AgentAG10IdentityLegal(BaseAgent):
 
 # NOTE: Wiring-safe alias for dynamic loaders expecting `Agent` symbol in this module.
 Agent = AgentAG10IdentityLegal
+

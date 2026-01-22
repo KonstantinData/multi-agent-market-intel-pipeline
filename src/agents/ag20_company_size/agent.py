@@ -396,3 +396,7 @@ class AgentAG20CompanySize(BaseAgent):
         }
 
         return AgentResult(ok=True, output=output)
+
+# NOTE: Wiring-safe alias for dynamic loaders expecting `Agent` symbol in this module.
+Agent = AgentAG20CompanySize
+
