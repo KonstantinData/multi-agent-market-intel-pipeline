@@ -727,137 +727,96 @@ def validate_ag11_output(output: Dict[str, Any], contract: Dict[str, Any]) -> Va
         )
         return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
 
-    site_keys: List[str] = []
-    for i, entity in enumerate(entities):
-        if not isinstance(entity, dict):
+    profile = output.get("company_size_profile")
+    if not isinstance(profile, dict):
+        errors.append(
+            ValidationIssue(
+                code=error_codes.MISSING_REQUIRED_FIELDS,
+                message="company_size_profile must be an object",
+                path="$.company_size_profile",
+            )
+        )
+        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
+
+    target_company = profile.get("target_company")
+    if not isinstance(target_company, dict):
+        errors.append(
+            ValidationIssue(
+                code=error_codes.MISSING_REQUIRED_FIELDS,
+                message="company_size_profile.target_company must be an object",
+                path="$.company_size_profile.target_company",
+            )
+        )
+        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
+
+    required_target_fields = ["name", "industry", "quantitative_metrics", "qualitative_context"]
+    for field in required_target_fields:
+        if field not in target_company:
             errors.append(
                 ValidationIssue(
-                    code=error_codes.INVALID_SITE_ENTITY,
-                    message="site entities must be objects",
-                    path=f"$.entities_delta[{i}]",
+                    code=error_codes.MISSING_REQUIRED_FIELDS,
+                    message=f"Missing target_company field: {field}",
+                    path=f"$.company_size_profile.target_company.{field}",
                 )
             )
-            continue
-        if entity.get("entity_type") != "site":
-            errors.append(
-                ValidationIssue(
-                    code=error_codes.INVALID_SITE_ENTITY,
-                    message="entities_delta must only contain site entities",
-                    path=f"$.entities_delta[{i}].entity_type",
-                )
+
+    metrics = target_company.get("quantitative_metrics")
+    if not isinstance(metrics, dict):
+        errors.append(
+            ValidationIssue(
+                code=error_codes.MISSING_REQUIRED_FIELDS,
+                message="quantitative_metrics must be an object",
+                path="$.company_size_profile.target_company.quantitative_metrics",
             )
-            continue
-        required_fields = ["entity_key", "entity_name", "site_type", "country_region", "city"]
-        for field in required_fields:
-            if field not in entity:
+        )
+    else:
+        for field in [
+            "annual_revenue_eur",
+            "mro_inventory_value_eur",
+            "inventory_to_revenue_ratio",
+            "ppe_value_eur",
+            "number_of_production_sites",
+        ]:
+            if field not in metrics:
                 errors.append(
                     ValidationIssue(
                         code=error_codes.MISSING_REQUIRED_FIELDS,
-                        message=f"Missing required field in site entity: {field}",
-                        path=f"$.entities_delta[{i}].{field}",
+                        message=f"Missing quantitative_metrics field: {field}",
+                        path=f"$.company_size_profile.target_company.quantitative_metrics.{field}",
                     )
                 )
-        country_region = str(entity.get("country_region", "")).strip()
-        if country_region == "":
+
+    qualitative = target_company.get("qualitative_context")
+    if not isinstance(qualitative, dict):
+        errors.append(
+            ValidationIssue(
+                code=error_codes.MISSING_REQUIRED_FIELDS,
+                message="qualitative_context must be an object",
+                path="$.company_size_profile.target_company.qualitative_context",
+            )
+        )
+
+    target_update = None
+    for entity in entities:
+        if isinstance(entity, dict) and entity.get("entity_id") == "TGT-001":
+            target_update = entity
+            break
+    if target_update is None:
+        errors.append(
+            ValidationIssue(
+                code=error_codes.MISSING_TARGET_ENTITY,
+                message="Missing target entity update with entity_id='TGT-001'",
+                path="$.entities_delta",
+            )
+        )
+    else:
+        attrs = target_update.get("attributes")
+        if not isinstance(attrs, dict) or "company_size_profile" not in attrs:
             errors.append(
                 ValidationIssue(
                     code=error_codes.MISSING_REQUIRED_FIELDS,
-                    message="country_region must be present or 'n/v'",
-                    path=f"$.entities_delta[{i}].country_region",
-                )
-            )
-        entity_key = str(entity.get("entity_key", "")).strip()
-        if entity_key:
-            site_keys.append(entity_key)
-
-    relation_site_keys = set()
-    for i, relation in enumerate(relations):
-        if not isinstance(relation, dict):
-            errors.append(
-                ValidationIssue(
-                    code=error_codes.MISSING_REQUIRED_FIELDS,
-                    message="relations_delta entries must be objects",
-                    path=f"$.relations_delta[{i}]",
-                )
-            )
-            continue
-        if relation.get("relation_type") != "operates_at":
-            errors.append(
-                ValidationIssue(
-                    code=error_codes.MISSING_REQUIRED_FIELDS,
-                    message="relations_delta must use relation_type='operates_at'",
-                    path=f"$.relations_delta[{i}].relation_type",
-                )
-            )
-        if relation.get("from_entity_id") != "TGT-001":
-            errors.append(
-                ValidationIssue(
-                    code=error_codes.MISSING_SITE_RELATION,
-                    message="site relations must reference from_entity_id='TGT-001'",
-                    path=f"$.relations_delta[{i}].from_entity_id",
-                )
-            )
-        to_key = str(relation.get("to_entity_key", "")).strip()
-        if to_key:
-            relation_site_keys.add(to_key)
-
-    for site_key in site_keys:
-        if site_key not in relation_site_keys:
-            errors.append(
-                ValidationIssue(
-                    code=error_codes.MISSING_SITE_RELATION,
-                    message="site entities must have operates_at relation from TGT-001",
-                    path="$.relations_delta",
-                )
-            )
-
-    sources = output.get("sources", [])
-    if site_keys:
-        if not isinstance(sources, list) or len(sources) == 0:
-            errors.append(
-                ValidationIssue(
-                    code=error_codes.MISSING_SOURCES_FOR_CLAIMS,
-                    message="sources must be non-empty when site entities are present",
-                    path="$.sources",
-                )
-            )
-        else:
-            for i, s in enumerate(sources):
-                if not isinstance(s, dict):
-                    errors.append(
-                        ValidationIssue(
-                            code=error_codes.SOURCE_MISSING_REQUIRED_FIELDS,
-                            message="source entries must be objects",
-                            path=f"$.sources[{i}]",
-                        )
-                    )
-                    continue
-                publisher = str(s.get("publisher", "")).strip()
-                url = str(s.get("url", "")).strip()
-                accessed = str(s.get("accessed_at_utc", "")).strip()
-                if not publisher or not url or not accessed or not _is_http_url(url):
-                    errors.append(
-                        ValidationIssue(
-                            code=error_codes.SOURCE_MISSING_REQUIRED_FIELDS,
-                            message="source requires publisher, http(s) url, accessed_at_utc",
-                            path=f"$.sources[{i}]",
-                        )
-                    )
-
-    search_attempts = output.get("search_attempts")
-    if search_attempts is not None:
-        _validate_search_attempts(search_attempts, "$.search_attempts", errors)
-
-    finding_texts = _collect_finding_texts(output.get("findings"))
-    if _findings_signal_no_evidence(finding_texts):
-        has_sources = isinstance(sources, list) and len(sources) > 0
-        has_attempts = isinstance(search_attempts, list) and len(search_attempts) > 0
-        if not has_sources and not has_attempts:
-            errors.append(
-                ValidationIssue(
-                    code=error_codes.MISSING_REQUIRED_FIELDS,
-                    message="findings report no evidence; include sources or search_attempts",
-                    path="$.sources",
+                    message="Target entity attributes must include company_size_profile",
+                    path="$.entities_delta[?(@.entity_id=='TGT-001')].attributes.company_size_profile",
                 )
             )
 
@@ -899,6 +858,27 @@ def validate_ag20_output(
         )
         return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
 
+    evaluation = output.get("evaluation")
+    if not isinstance(evaluation, dict):
+        errors.append(
+            ValidationIssue(
+                code=error_codes.MISSING_REQUIRED_FIELDS,
+                message="evaluation must be an object",
+                path="$.evaluation",
+            )
+        )
+        return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
+
+    for field in ["priority_score", "priority_tier", "strategic_rationale", "outreach_hook"]:
+        if field not in evaluation:
+            errors.append(
+                ValidationIssue(
+                    code=error_codes.MISSING_REQUIRED_FIELDS,
+                    message=f"Missing evaluation field: {field}",
+                    path=f"$.evaluation.{field}",
+                )
+            )
+
     target = None
     for e in entities:
         if isinstance(e, dict) and e.get("entity_id") == "TGT-001":
@@ -914,16 +894,6 @@ def validate_ag20_output(
             )
         )
         return ValidatorResult(ok=False, step_id=step_id, errors=errors, warnings=warnings)
-
-    for field in contract["outputs"]["target_entity_required_fields"]:
-        if field not in target:
-            errors.append(
-                ValidationIssue(
-                    code=error_codes.MISSING_REQUIRED_FIELDS,
-                    message=f"Missing required field in target entity: {field}",
-                    path=f"$.entities_delta[?(@.entity_id=='TGT-001')].{field}",
-                )
-            )
 
     if target.get("entity_type") != "target_company":
         errors.append(
@@ -956,54 +926,15 @@ def validate_ag20_output(
                 )
             )
 
-    size_fields = ["employee_range", "revenue_band", "market_scope_signal"]
-    for field in size_fields:
-        value = target.get(field)
-        if value is None:
-            continue
-        if value != "n/v" and not isinstance(value, str):
-            errors.append(
-                ValidationIssue(
-                    code=error_codes.MISSING_REQUIRED_FIELDS,
-                    message=f"{field} must be a string or 'n/v'",
-                    path=f"$.entities_delta[?(@.entity_id=='TGT-001')].{field}",
-                )
+    attrs = target.get("attributes")
+    if not isinstance(attrs, dict) or "liquisto_fit" not in attrs:
+        errors.append(
+            ValidationIssue(
+                code=error_codes.MISSING_REQUIRED_FIELDS,
+                message="Target entity attributes must include liquisto_fit",
+                path="$.entities_delta[?(@.entity_id=='TGT-001')].attributes.liquisto_fit",
             )
-
-    has_claim = any(target.get(k) not in (None, "", "n/v") for k in size_fields)
-    sources = output.get("sources", [])
-
-    if has_claim:
-        if not isinstance(sources, list) or len(sources) == 0:
-            errors.append(
-                ValidationIssue(
-                    code=error_codes.MISSING_SOURCES_FOR_CLAIMS,
-                    message="sources must be non-empty when size claims are present",
-                    path="$.sources",
-                )
-            )
-        else:
-            for i, s in enumerate(sources):
-                if not isinstance(s, dict):
-                    errors.append(
-                        ValidationIssue(
-                            code=error_codes.SOURCE_MISSING_REQUIRED_FIELDS,
-                            message="each source must be an object",
-                            path=f"$.sources[{i}]",
-                        )
-                    )
-                    continue
-                publisher = str(s.get("publisher", "")).strip()
-                url = str(s.get("url", "")).strip()
-                accessed = str(s.get("accessed_at_utc", "")).strip()
-                if not publisher or not url or not accessed or not _is_http_url(url):
-                    errors.append(
-                        ValidationIssue(
-                            code=error_codes.SOURCE_MISSING_REQUIRED_FIELDS,
-                            message="source requires publisher, http(s) url, accessed_at_utc",
-                            path=f"$.sources[{i}]",
-                        )
-                    )
+        )
 
     ok = len(errors) == 0
     return ValidatorResult(ok=ok, step_id=step_id, errors=errors, warnings=warnings)
