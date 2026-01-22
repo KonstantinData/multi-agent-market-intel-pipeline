@@ -26,8 +26,8 @@ STEP_ENTRYPOINTS: Dict[str, StepEntrypoint] = {
     "AG-00": StepEntrypoint("src.agents.ag00_intake_normalization.agent", "Agent"),
     "AG-01": StepEntrypoint("src.agents.ag01_source_registry.agent", "Agent"),
     "AG-10": StepEntrypoint("src.agents.ag10_identity_legal.agent", "Agent"),
-    "AG-11": StepEntrypoint("src.agents.ag11_locations_sites.agent", "Agent"),
-    "AG-20": StepEntrypoint("src.agents.ag20_company_size.agent", "Agent"),
+    "AG-11": StepEntrypoint("src.agents.ag11_company_size.agent.agent", "Agent"),
+    "AG-20": StepEntrypoint("src.agents.ag20_size_evaluator.agent", "Agent"),
 
     #note: Planned agents - baseline implementations exist or will be provided.
     "AG-21": StepEntrypoint("src.agents.ag21_financial_signals.agent", "Agent"),
