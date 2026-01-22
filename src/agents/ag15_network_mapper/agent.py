@@ -66,7 +66,7 @@ class AG15NetworkMapper(BaseAgent):
             "step_meta": self._create_step_meta(),
             "entities_delta": [],
             "relations_delta": [],
-            "findings": {},
+            "findings": [],
             "sources": [],
         }
 
@@ -87,16 +87,16 @@ class AG15NetworkMapper(BaseAgent):
                 
                 output["entities_delta"] = entities_list
                 output["relations_delta"] = relations_list
-                output["findings"] = network_data["findings"]
+                output["findings"] = [network_data["findings"]]
                 output["sources"] = network_data["sources"]
 
         except Exception as e:
             self.logger.error(f"Error in AG-15 execution: {str(e)}")
-            output["findings"] = {"error": f"Network mapping failed: {str(e)}"}
+            output["findings"] = [{"error": f"Network mapping failed: {str(e)}", "network_expansion_summary": "Error occurred"}]
         
         # Ensure required fields for contract validation
-        if "network_expansion_summary" not in output["findings"]:
-            output["findings"]["network_expansion_summary"] = "Network mapping completed"
+        if not output["findings"]:
+            output["findings"] = [{"network_expansion_summary": "Network mapping completed"}]
 
         return AgentResult(ok=True, output=output)
 
