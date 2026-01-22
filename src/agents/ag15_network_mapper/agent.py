@@ -264,7 +264,7 @@ Focus on companies in the same or related industries.
         
         # Process peers
         peers = research_data.get("peers", [])
-        for i, peer in enumerate(peers[:3]):  # Limit to 3
+        for i, peer in enumerate(peers[:10]):  # Limit to 10
             entity_id = f"PEER-{i+1:03d}"
             entities_delta[entity_id] = {
                 "entity_key": f"peer-{i+1:03d}",
@@ -276,7 +276,7 @@ Focus on companies in the same or related industries.
         
         # Process customers
         customers = research_data.get("customers", [])
-        for i, customer in enumerate(customers[:3]):  # Limit to 3
+        for i, customer in enumerate(customers[:10]):  # Limit to 10
             entity_id = f"CUSTOMER-{i+1:03d}"
             entities_delta[entity_id] = {
                 "entity_key": f"customer-{i+1:03d}",

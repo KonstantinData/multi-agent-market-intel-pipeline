@@ -465,11 +465,13 @@ def _openai_extract_legal_identity(evidence_text: str, api_key: str, timeout_s: 
             {
                 "role": "system",
                 "content": (
-                    "Extract legal identity information from the provided evidence. "
-                    "If a field is not explicitly stated in evidence, output 'n/v'. "
-                    "Do NOT guess or infer. "
-                    "registration_signals must include register markers like Handelsregister/HRB/HRA if present. "
-                    "founding_year must be a 4-digit year or 'n/v'."
+                    "Extract legal identity and company information from the provided evidence. "
+                    "For legal_name: Extract the full official company name including legal form. "
+                    "For legal_form: Extract legal entity type (GmbH, AG, SE, KGaA, etc.). "
+                    "For founding_year: Extract 4-digit founding/establishment year. "
+                    "For registration_signals: Extract commercial register information (Handelsregister, HRB, HRA). "
+                    "If information is clearly stated or can be reasonably inferred from context, include it. "
+                    "Only use 'n/v' if the information is completely absent from the evidence."
                 ),
             },
             {"role": "user", "content": user_content[:12000]},
@@ -508,28 +510,44 @@ def _sanitize_llm_outputs(parsed: Dict[str, Any], evidence_text: str) -> Tuple[s
     raw_founding_year = _to_ascii(str(parsed.get("founding_year", "n/v"))).strip() or "n/v"
     raw_registration = _to_ascii(str(parsed.get("registration_signals", "n/v"))).strip() or "n/v"
 
-    if raw_legal_name != "n/v" and _normalize_for_contains(raw_legal_name) not in ev_norm:
-        raw_legal_name = "n/v"
+    # Less strict validation - allow reasonable inferences
+    if raw_legal_name != "n/v":
+        # Check if core company name parts are in evidence
+        name_parts = [part.strip() for part in raw_legal_name.replace(",", " ").split() if len(part.strip()) > 2]
+        if name_parts and any(_normalize_for_contains(part) in ev_norm for part in name_parts):
+            # Keep the name if any significant part is found
+            pass
+        else:
+            raw_legal_name = "n/v"
 
-    if raw_legal_form != "n/v" and _normalize_for_contains(raw_legal_form) not in ev_norm:
-        raw_legal_form = "n/v"
+    if raw_legal_form != "n/v":
+        # Legal forms are often abbreviated or styled differently
+        common_forms = ["gmbh", "ag", "se", "kg", "kgaa", "inc", "ltd", "llc", "corp"]
+        form_lower = raw_legal_form.lower().replace(".", "").replace("&", "").strip()
+        if any(form in ev_norm for form in common_forms if form in form_lower):
+            # Keep if any common legal form is found
+            pass
+        else:
+            raw_legal_form = "n/v"
 
     if raw_founding_year != "n/v":
         m = re.search(r"\b(18\d{2}|19\d{2}|20\d{2})\b", raw_founding_year)
         year = m.group(1) if m else None
-        if not year or year not in evidence_text:
-            raw_founding_year = "n/v"
-        else:
+        if year and (year in evidence_text or year in ev_norm):
             raw_founding_year = year
+        else:
+            raw_founding_year = "n/v"
 
     if raw_registration != "n/v":
         markers = ("handelsregister", "commercial register", "registergericht", "amtsgericht", "hrb", "hra")
         lowered = raw_registration.lower()
-        if not any(marker in lowered for marker in markers):
-            raw_registration = "n/v"
-        if raw_registration != "n/v" and _normalize_for_contains(raw_registration) not in ev_norm:
+        if any(marker in lowered for marker in markers) or any(marker in ev_norm for marker in markers):
+            # Keep if registration markers are present
+            pass
+        else:
             raw_registration = "n/v"
 
+    # Truncate if too long
     if raw_legal_name != "n/v" and len(raw_legal_name) > 160:
         raw_legal_name = raw_legal_name[:160]
     if raw_registration != "n/v" and len(raw_registration) > 400:
