@@ -54,7 +54,7 @@ class AG21FinancialDevelopment(BaseAgent):
             "step_meta": self._create_step_meta(),
             "entities_delta": [],
             "relations_delta": [],
-            "findings": {},
+            "findings": [],
             "sources": []
         }
         
@@ -70,20 +70,20 @@ class AG21FinancialDevelopment(BaseAgent):
                 }
                 output["entities_delta"] = [entity_update]
                 
-                output["findings"] = financial_data["findings"]
+                output["findings"] = [financial_data["findings"]]
                 output["sources"] = financial_data["sources"]
             
         except Exception as e:
             self.logger.error(f"Error in AG-21 execution: {str(e)}")
-            output["findings"] = {"error": f"Financial research failed: {str(e)}"}
+            output["findings"] = [{"error": f"Financial research failed: {str(e)}", "currency": "n/v", "time_series": [], "trend_summary": "n/v"}]
         
         # Ensure required fields for contract validation
         if not output["findings"]:
-            output["findings"] = {
+            output["findings"] = [{
                 "currency": "n/v",
                 "time_series": [],
                 "trend_summary": "n/v"
-            }
+            }]
         
         return AgentResult(ok=True, output=output)
     
