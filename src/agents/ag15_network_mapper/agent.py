@@ -158,75 +158,145 @@ class AG15NetworkMapper(BaseAgent):
         self, company_name: str, domain: str, target_entity: Dict[str, Any]
     ) -> Optional[Dict[str, Any]]:
         """
-        Research network connections for the target company.
+        Research network connections for the target company using OpenAI.
         """
-        search_queries = self._build_search_queries(company_name)
+        import os
+        import httpx
+        import json
+        
+        api_key = os.getenv("OPEN-AI-KEY") or os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            return self._fallback_network_data(company_name)
+        
+        # Build comprehensive search context
+        search_context = f"""
+Company: {company_name}
+Domain: {domain}
+Industries: Medical Technology, Mechanical Engineering, Electrical Engineering
 
-        sources = []
-        entities_delta: Dict[str, Any] = {}
-        relations_delta: Dict[str, Any] = {}
+Find real competitors, suppliers, customers, and business partners for this company.
+Focus on companies in the same or related industries.
+"""
+        
+        try:
+            payload = {
+                "model": "gpt-4o-mini",
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": "You are a business intelligence researcher. Find real companies that are competitors, suppliers, customers, or partners of the given company. Return JSON with 'peers' and 'customers' arrays. Each entry needs: entity_name, industry, rationale. Use real company names only."
+                    },
+                    {
+                        "role": "user", 
+                        "content": search_context
+                    }
+                ],
+                "temperature": 0.3,
+                "max_tokens": 1000
+            }
+            
+            headers = {"Authorization": f"Bearer {api_key}"}
+            with httpx.Client(timeout=30.0) as client:
+                resp = client.post("https://api.openai.com/v1/chat/completions", json=payload, headers=headers)
+                resp.raise_for_status()
+                data = resp.json()
+            
+            content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+            if content:
+                try:
+                    research_data = json.loads(content)
+                    return self._process_openai_results(research_data, company_name)
+                except json.JSONDecodeError:
+                    pass
+                    
+        except Exception as e:
+            self.logger.error(f"OpenAI research failed: {str(e)}")
+        
+        return self._fallback_network_data(company_name)
 
+    def _process_openai_results(self, research_data: Dict[str, Any], company_name: str) -> Dict[str, Any]:
+        """Process OpenAI research results into entities and relations."""
+        entities_delta = {}
         accessed_at = datetime.now(timezone.utc).isoformat()
-
-        # Collect sources (as reproducible search URLs; actual fetching would be implemented elsewhere)
-        for query in search_queries:
-            q = quote_plus(query)
-            sources.append(
-                {
-                    "publisher": "Search (query)",
-                    "url": f"https://duckduckgo.com/?q={q}",
-                    "title": f"Network search: {company_name}",
-                    "accessed_at_utc": accessed_at,
-                }
-            )
-
-        # Example network discovery (placeholder; populate from real extraction)
-        if company_name and domain:
-            peer_companies = self._discover_peer_companies(company_name)
-            customer_companies = self._discover_customer_companies(company_name)
-
-            all_discovered = {**peer_companies, **customer_companies}
-            entities_delta = all_discovered
-            relations_delta = self._build_relations(
-                str(target_entity.get("entity_key", "")).strip(),
-                all_discovered,
-            )
-
+        
+        # Process peers
+        peers = research_data.get("peers", [])
+        for i, peer in enumerate(peers[:3]):  # Limit to 3
+            entity_id = f"PEER-{i+1:03d}"
+            entities_delta[entity_id] = {
+                "entity_key": f"peer-{i+1:03d}",
+                "entity_name": peer.get("entity_name", "Unknown"),
+                "industry": peer.get("industry", "n/v"),
+                "relationship_type": "peer",
+                "rationale": peer.get("rationale", "Identified as industry peer")
+            }
+        
+        # Process customers
+        customers = research_data.get("customers", [])
+        for i, customer in enumerate(customers[:3]):  # Limit to 3
+            entity_id = f"CUSTOMER-{i+1:03d}"
+            entities_delta[entity_id] = {
+                "entity_key": f"customer-{i+1:03d}",
+                "entity_name": customer.get("entity_name", "Unknown"),
+                "industry": customer.get("industry", "n/v"),
+                "relationship_type": "customer",
+                "rationale": customer.get("rationale", "Identified as potential customer")
+            }
+        
+        relations_delta = self._build_relations("", entities_delta)
+        
+        sources = [{
+            "publisher": "OpenAI Research",
+            "url": "https://api.openai.com/v1/chat/completions",
+            "title": f"AI-powered network research for {company_name}",
+            "accessed_at_utc": accessed_at
+        }]
+        
         findings = {
-            "network_expansion_summary": f"Identified {len(entities_delta)} related companies for {company_name}",
+            "network_expansion_summary": f"AI research identified {len(entities_delta)} related companies for {company_name}",
             "peer_count": len([e for e in entities_delta.values() if e.get("relationship_type") == "peer"]),
             "customer_count": len([e for e in entities_delta.values() if e.get("relationship_type") == "customer"]),
         }
-
+        
         return {
             "entities": entities_delta,
             "relations": relations_delta,
             "findings": findings,
-            "sources": sources,
+            "sources": sources
         }
-
-    def _discover_peer_companies(self, company_name: str) -> Dict[str, Any]:
-        """Discover peer companies in the same industry."""
-        return {
+    
+    def _fallback_network_data(self, company_name: str) -> Dict[str, Any]:
+        """Fallback when OpenAI is not available."""
+        entities_delta = {
             "PEER-001": {
-                "entity_key": "peer-competitor-001",
-                "entity_name": "Competitor Solutions Inc.",
-                "industry": "Mechanical Engineering",
+                "entity_key": "peer-fallback-001",
+                "entity_name": "Industry Peer (Fallback)",
+                "industry": "n/v",
                 "relationship_type": "peer",
-                "rationale": "Same business sector - likely inventory overlap",
+                "rationale": "Fallback data - OpenAI unavailable"
             }
         }
-
-    def _discover_customer_companies(self, company_name: str) -> Dict[str, Any]:
-        """Discover customer companies (buyers)."""
+        
+        relations_delta = self._build_relations("", entities_delta)
+        
+        sources = [{
+            "publisher": "Fallback Data",
+            "url": "n/v",
+            "title": f"Fallback network data for {company_name}",
+            "accessed_at_utc": datetime.now(timezone.utc).isoformat()
+        }]
+        
+        findings = {
+            "network_expansion_summary": f"Fallback: Limited network data for {company_name}",
+            "peer_count": 1,
+            "customer_count": 0,
+        }
+        
         return {
-            "CUSTOMER-001": {
-                "entity_key": "customer-buyer-001",
-                "entity_name": "Industrial Buyer Corp.",
-                "industry": "Manufacturing",
-                "relationship_type": "customer",
-                "rationale": "Downstream buyer - replacement parts need",
-            }
+            "entities": entities_delta,
+            "relations": relations_delta,
+            "findings": findings,
+            "sources": sources
         }
 
     def _build_relations(self, source_entity_key: str, discovered_entities: Dict[str, Any]) -> Dict[str, Any]:

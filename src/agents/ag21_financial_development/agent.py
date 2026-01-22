@@ -89,73 +89,101 @@ class AG21FinancialDevelopment(BaseAgent):
     
     def _research_financial_metrics(self, company_name: str, domain: str) -> Optional[Dict[str, Any]]:
         """
-        Research financial metrics for the target company.
-        
-        Args:
-            company_name: Company name
-            domain: Company domain
-            
-        Returns:
-            Financial data structure or None if not found
+        Research financial metrics using OpenAI.
         """
-        # Search queries for different financial metrics
-        search_queries = [
-            f"{company_name} annual revenue last 4 years",
-            f"{company_name} EBITDA last 3 years",
-            f"{company_name} equity ratio 2024",
-            f"{company_name} investments last 3 years",
-            f"{company_name} financial statements",
-            f"{company_name} investor relations"
-        ]
+        import os
+        import httpx
+        import json
         
-        sources = []
-        financial_profile = {
-            "revenue_data": "n/v",
-            "ebitda_data": "n/v", 
-            "equity_ratio": "n/v",
-            "capex_data": "n/v",
-            "currency": "n/v"
-        }
+        api_key = os.getenv("OPEN-AI-KEY") or os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            return self._fallback_financial_data(company_name)
         
-        findings = {
-            "currency": "n/v",
-            "time_series": [],
-            "equity_ratio_2024": "n/v",
-            "trend_summary": "n/v"
-        }
+        financial_context = f"""
+Company: {company_name}
+Domain: {domain}
+
+Find recent financial data for this company including:
+- Annual revenue (last 3 years)
+- EBITDA or profit margins
+- Debt levels or equity ratio
+- Capital expenditures
+- Financial trends and outlook
+
+Provide specific numbers where available, otherwise indicate 'n/v'.
+"""
         
-        # Simulate financial data collection
-        # In real implementation, this would use ChatGPT Search or other APIs
-        for query in search_queries:
-            # Placeholder for actual search implementation
-            source_url = f"https://example-financial-source.com/search?q={query.replace(' ', '+')}"
-            sources.append({
-                "publisher": "Financial Research Database",
-                "url": source_url,
-                "title": f"Financial data for {company_name}",
-                "accessed_at_utc": datetime.now(timezone.utc).isoformat()
-            })
-        
-        # Example financial data structure (would be populated from actual research)
-        if company_name and domain:
-            findings = {
-                "currency": "EUR",
-                "time_series": [
-                    {"year": 2022, "revenue": "n/v", "ebitda": "n/v", "net_debt": "n/v", "capex": "n/v"},
-                    {"year": 2023, "revenue": "n/v", "ebitda": "n/v", "net_debt": "n/v", "capex": "n/v"},
-                    {"year": 2024, "revenue": "n/v", "ebitda": "n/v", "net_debt": "n/v", "capex": "n/v"}
+        try:
+            payload = {
+                "model": "gpt-4o-mini",
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": "You are a financial analyst. Research and provide financial data for the given company. Return JSON with: currency, revenue_trend, profitability_trend, leverage_trend, investment_pattern, working_capital_pressure, time_series (array with year, revenue, ebitda, net_debt, capex), equity_ratio_2024, trend_summary. Use real data where possible, 'n/v' where not available."
+                    },
+                    {
+                        "role": "user",
+                        "content": financial_context
+                    }
                 ],
-                "equity_ratio_2024": "n/v",
-                "trend_summary": "Financial data requires verification from official sources."
+                "temperature": 0.1,
+                "max_tokens": 1000
             }
             
-            financial_profile = {
-                "revenue_trend": "n/v",
-                "profitability_trend": "n/v",
-                "leverage_trend": "n/v",
-                "investment_pattern": "n/v",
-                "working_capital_pressure": "n/v"
-            }
+            headers = {"Authorization": f"Bearer {api_key}"}
+            with httpx.Client(timeout=30.0) as client:
+                resp = client.post("https://api.openai.com/v1/chat/completions", json=payload, headers=headers)
+                resp.raise_for_status()
+                data = resp.json()
+            
+            content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+            if content:
+                try:
+                    financial_data = json.loads(content)
+                    return self._process_financial_results(financial_data, company_name)
+                except json.JSONDecodeError:
+                    pass
+                    
+        except Exception as e:
+            self.logger.error(f"OpenAI financial research failed: {str(e)}")
+        
+        return self._fallback_financial_data(company_name)
+    
+    def _process_financial_results(self, financial_data: Dict[str, Any], company_name: str) -> Dict[str, Any]:
+        """Process OpenAI financial research results."""
+        accessed_at = datetime.now(timezone.utc).isoformat()
+        
+        # Extract financial profile
+        financial_profile = {
+            "revenue_trend": financial_data.get("revenue_trend", "n/v"),
+            "profitability_trend": financial_data.get("profitability_trend", "n/v"),
+            "leverage_trend": financial_data.get("leverage_trend", "n/v"),
+            "investment_pattern": financial_data.get("investment_pattern", "n/v"),
+            "working_capital_pressure": financial_data.get("working_capital_pressure", "n/v")
+        }
+        
+        # Extract findings
+        findings = {
+            "currency": financial_data.get("currency", "EUR"),
+            "time_series": financial_data.get("time_series", []),
+            "equity_ratio_2024": financial_data.get("equity_ratio_2024", "n/v"),
+            "trend_summary": financial_data.get("trend_summary", "AI-powered financial analysis completed")
+        }
+        
+        # Ensure time_series has proper structure
+        if not findings["time_series"]:
+            findings["time_series"] = [
+                {"year": 2022, "revenue": "n/v", "ebitda": "n/v", "net_debt": "n/v", "capex": "n/v"},
+                {"year": 2023, "revenue": "n/v", "ebitda": "n/v", "net_debt": "n/v", "capex": "n/v"},
+                {"year": 2024, "revenue": "n/v", "ebitda": "n/v", "net_debt": "n/v", "capex": "n/v"}
+            ]
+        
+        sources = [{
+            "publisher": "OpenAI Financial Research",
+            "url": "https://api.openai.com/v1/chat/completions",
+            "title": f"AI-powered financial research for {company_name}",
+            "accessed_at_utc": accessed_at
+        }]
         
         return {
             "profile": financial_profile,
@@ -163,6 +191,43 @@ class AG21FinancialDevelopment(BaseAgent):
             "sources": sources
         }
     
+    def _fallback_financial_data(self, company_name: str) -> Dict[str, Any]:
+        """Fallback when OpenAI is not available."""
+        financial_profile = {
+            "revenue_trend": "n/v",
+            "profitability_trend": "n/v",
+            "leverage_trend": "n/v",
+            "investment_pattern": "n/v",
+            "working_capital_pressure": "n/v"
+        }
+        
+        findings = {
+            "currency": "EUR",
+            "time_series": [
+                {"year": 2022, "revenue": "n/v", "ebitda": "n/v", "net_debt": "n/v", "capex": "n/v"},
+                {"year": 2023, "revenue": "n/v", "ebitda": "n/v", "net_debt": "n/v", "capex": "n/v"},
+                {"year": 2024, "revenue": "n/v", "ebitda": "n/v", "net_debt": "n/v", "capex": "n/v"}
+            ],
+            "equity_ratio_2024": "n/v",
+            "trend_summary": "Fallback data - OpenAI unavailable"
+        }
+        
+        sources = [{
+            "publisher": "Fallback Data",
+            "url": "n/v",
+            "title": f"Fallback financial data for {company_name}",
+            "accessed_at_utc": datetime.now(timezone.utc).isoformat()
+        }]
+        
+        return {
+            "profile": financial_profile,
+            "findings": findings,
+            "sources": sources
+        }
+
+
+# NOTE: Wiring-safe alias for dynamic loaders expecting `Agent` symbol in this module.
+Agent = AG21FinancialDevelopment
     def _create_step_meta(self) -> Dict[str, Any]:
         """Create step metadata."""
         now = datetime.now(timezone.utc)
