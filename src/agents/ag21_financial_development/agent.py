@@ -225,9 +225,6 @@ Provide specific numbers where available, otherwise indicate 'n/v'.
             "sources": sources
         }
 
-
-# NOTE: Wiring-safe alias for dynamic loaders expecting `Agent` symbol in this module.
-Agent = AG21FinancialDevelopment
     def _create_step_meta(self) -> Dict[str, Any]:
         """Create step metadata."""
         now = datetime.now(timezone.utc)
