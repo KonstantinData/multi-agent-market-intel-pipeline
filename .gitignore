@@ -148,6 +148,10 @@ artifacts/runs/**
 !artifacts/runs/.gitkeep
 artifacts/runs_archived/*
 !artifacts/runs_archived/.gitkeep
+# draw.io temp / lock files
+*.dtmp
+.$*.dtmp
+.$*.drawio
 
 
 
