@@ -9,7 +9,6 @@ from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 
 from ..common.base_agent import BaseAgent, AgentResult
-from ..common.source_capture import SourceCapture
 
 
 class AG15NetworkMapper(BaseAgent):
@@ -26,7 +25,6 @@ class AG15NetworkMapper(BaseAgent):
         super().__init__()
         self.agent_id = "AG-15"
         self.agent_name = "ag15_network_mapper"
-        self.source_capture = SourceCapture()
         self.core_industries = ["Medical Technology", "Mechanical Engineering", "Electrical Engineering"]
     
     def run(

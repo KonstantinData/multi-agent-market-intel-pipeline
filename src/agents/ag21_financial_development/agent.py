@@ -9,7 +9,6 @@ from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 
 from ..common.base_agent import BaseAgent, AgentResult
-from ..common.source_capture import SourceCapture
 
 
 class AG21FinancialDevelopment(BaseAgent):
@@ -27,7 +26,6 @@ class AG21FinancialDevelopment(BaseAgent):
         super().__init__()
         self.agent_id = "AG-21"
         self.agent_name = "ag21_financial_development"
-        self.source_capture = SourceCapture()
     
     def run(
         self,
