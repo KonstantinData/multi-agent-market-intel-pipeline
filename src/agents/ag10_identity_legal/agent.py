@@ -115,12 +115,12 @@ def _fetch_pages(domain: str, paths: List[str], timeout_s: float = 10.0) -> List
 # NOTE: Scans text line-by-line and returns the first line matching any pattern (deterministic order).
 def _find_first_matching_line(text: str, patterns: List[re.Pattern]) -> Optional[str]:
     for line in text.split("\n"):
-        l = line.strip()
-        if not l:
+        stripped = line.strip()
+        if not stripped:
             continue
         for pat in patterns:
-            if pat.search(l):
-                return l
+            if pat.search(stripped):
+                return stripped
     return None
 
 
@@ -129,11 +129,11 @@ def _extract_registration_signals(text: str) -> str:
     tokens = ["Handelsregister", "Commercial Register", "Registergericht", "Amtsgericht", "HRB", "HRA"]
     lines: List[str] = []
     for line in text.split("\n"):
-        l = line.strip()
-        if not l:
+        stripped = line.strip()
+        if not stripped:
             continue
-        if any(t in l for t in tokens):
-            lines.append(l)
+        if any(t in stripped for t in tokens):
+            lines.append(stripped)
         if len(lines) >= 3:
             break
     return "n/v" if not lines else "; ".join(lines)
@@ -198,13 +198,13 @@ def _extract_legal_name_and_form(text: str) -> Tuple[str, str]:
 def _extract_phone_number(text: str) -> str:
     phone_markers = ["tel", "telefon", "phone", "mobile", "fax"]
     for line in text.split("\n"):
-        l = _to_ascii(line).strip()
-        if not l:
+        stripped = _to_ascii(line).strip()
+        if not stripped:
             continue
-        low = l.lower()
+        low = stripped.lower()
         if any(m in low for m in phone_markers):
             # simple phone normalization: keep digits, +, spaces, /, -
-            m = re.search(r"(\+?\d[\d\s\/\-()]{6,}\d)", l)
+            m = re.search(r"(\+?\d[\d\s\/\-()]{6,}\d)", stripped)
             if m:
                 cand = m.group(1).strip()
                 if len(cand) > 40:
@@ -216,10 +216,10 @@ def _extract_phone_number(text: str) -> str:
 # NOTE: Extracts postal code + city from German-style patterns: "12345 City".
 def _extract_postal_city(text: str) -> Tuple[str, str]:
     for line in text.split("\n"):
-        l = _to_ascii(line).strip()
-        if not l:
+        stripped = _to_ascii(line).strip()
+        if not stripped:
             continue
-        m = re.search(r"\b(\d{5})\s+([A-Za-z][A-Za-z \-]{1,40})\b", l)
+        m = re.search(r"\b(\d{5})\s+([A-Za-z][A-Za-z \-]{1,40})\b", stripped)
         if m:
             postal = m.group(1).strip()
             city = m.group(2).strip()
@@ -236,16 +236,16 @@ def _extract_street_address(text: str) -> str:
     ]
     for line in text.split("\n"):
         raw = line.strip()
-        l = _to_ascii(raw).strip()
-        if not l:
+        stripped = _to_ascii(raw).strip()
+        if not stripped:
             continue
-        low = l.lower()
+        low = stripped.lower()
         if any(tok in low for tok in street_tokens):
             # requires at least one number in the line (house number)
-            if re.search(r"\b\d{1,4}\b", l):
-                if len(l) > 120:
-                    l = l[:120]
-                return l
+            if re.search(r"\b\d{1,4}\b", stripped):
+                if len(stripped) > 120:
+                    stripped = stripped[:120]
+                return stripped
     return "n/v"
 
 
@@ -367,14 +367,14 @@ def _collect_evidence_lines(pages: List[PageEvidence], max_lines: int = 180) -> 
     urls: List[str] = []
 
     for ev in pages:
-        lines = [(_to_ascii(l).strip()) for l in ev.text.split("\n")]
-        lines = [l for l in lines if l]
+        lines = [(_to_ascii(line).strip()) for line in ev.text.split("\n")]
+        lines = [line for line in lines if line]
         if not lines:
             continue
 
         hit_idxs: List[int] = []
-        for i, l in enumerate(lines):
-            if keyword_re.search(l):
+        for i, line in enumerate(lines):
+            if keyword_re.search(line):
                 hit_idxs.append(i)
 
         picked: List[int] = []
@@ -389,10 +389,10 @@ def _collect_evidence_lines(pages: List[PageEvidence], max_lines: int = 180) -> 
         for idx in picked:
             if len(out) >= max_lines:
                 break
-            l = lines[idx]
-            if len(l) > 240:
-                l = l[:240]
-            out.append(f"URL: {ev.url}\nLINE: {l}")
+            line = lines[idx]
+            if len(line) > 240:
+                line = line[:240]
+            out.append(f"URL: {ev.url}\nLINE: {line}")
             if ev.url:
                 urls.append(ev.url)
 
@@ -726,4 +726,3 @@ class AgentAG10IdentityLegal(BaseAgent):
 
 # NOTE: Wiring-safe alias for dynamic loaders expecting `Agent` symbol in this module.
 Agent = AgentAG10IdentityLegal
-

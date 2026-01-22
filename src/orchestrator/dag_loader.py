@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Sequence, Set, Union
+from typing import Dict, List, Set
 
 import yaml
 
