@@ -26,8 +26,8 @@ STEP_ENTRYPOINTS: Dict[str, StepEntrypoint] = {
     "AG-00": StepEntrypoint("src.agents.ag00_intake_normalization.agent", "Agent"),
     "AG-01": StepEntrypoint("src.agents.ag01_source_registry.agent", "Agent"),
     "AG-10": StepEntrypoint("src.agents.ag10_identity_legal.agent", "Agent"),
-    "AG-11": StepEntrypoint("src.agents.ag11_company_size.agent.agent", "Agent"),
-    "AG-20": StepEntrypoint("src.agents.ag20_size_evaluator.agent", "Agent"),
+    "AG-11": StepEntrypoint("src.agents.ag11_company_size.agent", "Agent"),
+    "AG-20": StepEntrypoint("src.agents.ag20_Size_Evaluator.agent", "Agent"),
 
     #note: Planned agents - baseline implementations exist or will be provided.
     "AG-21": StepEntrypoint("src.agents.ag21_financial_signals.agent", "Agent"),
@@ -35,7 +35,7 @@ STEP_ENTRYPOINTS: Dict[str, StepEntrypoint] = {
     "AG-31": StepEntrypoint("src.agents.ag31_markets_focus.agent", "Agent"),
     "AG-40": StepEntrypoint("src.agents.ag40_target_customers.agent", "Agent"),
     "AG-41": StepEntrypoint("src.agents.ag41_peer_discovery.agent", "Agent"),
-    "AG-42": StepEntrypoint("src.agents.ag42_customers_of_manufacturers.agent", "Agent"),
+    "AG-42": StepEntrypoint("src.agents.ag42_customers_of_intake_company.agent", "Agent"),
     "AG-50": StepEntrypoint("src.agents.ag50_projects_tenders.agent", "Agent"),
     "AG-51": StepEntrypoint("src.agents.ag51_strategic_changes.agent", "Agent"),
     "AG-60": StepEntrypoint("src.agents.ag60_industry_cycles.agent", "Agent"),

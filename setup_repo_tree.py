@@ -173,14 +173,14 @@ def create_repo_tree(repo_root: Path) -> None:
     agent_dirs = [
         "ag00_intake_normalization",
         "ag10_identity_legal",
-        "ag11_locations_sites",
-        "ag20_company_size",
+        "ag11_company_size",
+        "ag20_Size_Evaluator",
         "ag21_financial_signals",
         "ag30_portfolio",
         "ag31_markets_focus",
         "ag40_target_customers",
         "ag41_peer_discovery",
-        "ag42_customers_of_manufacturers",
+        "ag42_customers_of_intake_company",
         "ag70_supply_chain_tech",
         "ag71_supply_chain_risks",
         "ag72_sustainability_circular",
@@ -195,8 +195,8 @@ def create_repo_tree(repo_root: Path) -> None:
         touch_file(repo_root / f"src/agents/{d}/agent.py")
 
     # AG-42 extras (Map-Reduce)
-    touch_file(repo_root / "src/agents/ag42_customers_of_manufacturers/map_tasks.py")
-    touch_file(repo_root / "src/agents/ag42_customers_of_manufacturers/reduce_merge.py")
+    touch_file(repo_root / "src/agents/ag42_customers_of_intake_company/map_tasks.py")
+    touch_file(repo_root / "src/agents/ag42_customers_of_intake_company/reduce_merge.py")
 
     # ---------------------------------------------------------------------
     # scripts

@@ -1,139 +1,96 @@
+"""
+AG-11 Company Size Profile Builder
+
+Purpose:
+- Assemble quantitative and qualitative company size signals for Liquisto's size evaluator (AG-20).
+- Output a structured, evidence-aware payload with deterministic defaults ("n/v").
+
+Notes:
+- This agent does NOT make authoritative claims. It mirrors provided inputs only.
+- It emits a target entity update with an embedded company_size_profile for downstream use.
+"""
+
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
-
-import httpx
 
 from src.agents.common.base_agent import AgentResult, BaseAgent
 from src.agents.common.step_meta import build_step_meta, utc_now_iso
 
 
-@dataclass(frozen=True)
-class PageEvidence:
-    url: str
-    text: str
-
-
 def _to_ascii(text: str) -> str:
-    try:
-        return text.encode("utf-8", errors="ignore").decode("utf-8")
-    except Exception:
-        return text
+    if text is None:
+        return ""
+    return str(text).encode("ascii", errors="ignore").decode("ascii")
 
 
-def _dedupe_sources(sources: List[Dict[str, str]]) -> List[Dict[str, str]]:
-    seen = set()
-    out: List[Dict[str, str]] = []
-    for s in sources:
-        url = str(s.get("url", "")).strip()
-        publisher = str(s.get("publisher", "")).strip()
-        key = (publisher, url)
-        if url and publisher and key not in seen:
-            seen.add(key)
-            out.append({"publisher": publisher, "url": url, "accessed_at_utc": s.get("accessed_at_utc", utc_now_iso())})
-    return out
-
-
-def _fetch_text(url: str, timeout_s: float = 15.0) -> Optional[str]:
-    try:
-        with httpx.Client(timeout=timeout_s, follow_redirects=True) as client:
-            r = client.get(url, headers={"User-Agent": "Mozilla/5.0"})
-            if r.status_code != 200:
-                return None
-            ct = r.headers.get("content-type", "")
-            if "text/html" not in ct and "text/plain" not in ct and "application/xhtml+xml" not in ct:
-                return None
-            return r.text
-    except Exception:
+def _coerce_float(value: Any) -> Optional[float]:
+    if value is None:
         return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        cleaned = value.strip()
+        if not cleaned or cleaned.lower() == "n/v":
+            return None
+        cleaned = cleaned.replace(" ", "").replace(",", "")
+        cleaned = re.sub(r"[^0-9.\-]", "", cleaned)
+        if not cleaned:
+            return None
+        try:
+            return float(cleaned)
+        except ValueError:
+            return None
+    return None
 
 
-def _strip_html_to_text(html: str) -> str:
-    # Minimal HTML->text normalization (non-OCR, deterministic)
-    text = re.sub(r"(?is)<script.*?>.*?</script>", " ", html)
-    text = re.sub(r"(?is)<style.*?>.*?</style>", " ", text)
-    text = re.sub(r"(?is)<[^>]+>", " ", text)
-    text = re.sub(r"\s+", " ", text)
-    return text.strip()
+def _coerce_int(value: Any) -> Optional[int]:
+    as_float = _coerce_float(value)
+    if as_float is None:
+        return None
+    return int(round(as_float))
 
 
-def _extract_size_signals(text: str) -> Dict[str, Any]:
-    """
-    Extracts low-stakes "signals" only (no hard claims):
-      - employee count pattern hits
-      - revenue pattern hits
-      - generic size keywords
-    """
-    t = text.lower()
-
-    employees_hits = []
-    revenue_hits = []
-    keyword_hits = []
-
-    # Employees patterns (very permissive; treated as "signals")
-    emp_patterns = [
-        r"\b(\d{2,6})\s*(employees|employee|mitarbeiter|mitarbeitende|mitarbeiterinnen|staff)\b",
-        r"\b(employees|employee|mitarbeiter|mitarbeitende|staff)\s*[:\-]?\s*(\d{2,6})\b",
-    ]
-    for pat in emp_patterns:
-        for m in re.finditer(pat, t):
-            employees_hits.append(m.group(0))
-
-    # Revenue patterns (signals, not canonical financials)
-    rev_patterns = [
-        r"\b(revenue|umsatz|turnover)\s*[:\-]?\s*(€|\$|eur|usd)?\s*\d[\d\.,]*\s*(m|mn|million|mio|b|bn|billion|mrd)?\b",
-        r"\b(€|\$)\s*\d[\d\.,]*\s*(m|mn|million|mio|b|bn|billion|mrd)\b",
-    ]
-    for pat in rev_patterns:
-        for m in re.finditer(pat, t):
-            revenue_hits.append(m.group(0))
-
-    # Generic size keywords (signals)
-    size_keywords = [
-        "global",
-        "worldwide",
-        "international",
-        "multinational",
-        "mid-size",
-        "midsize",
-        "mittelstand",
-        "large",
-        "small",
-        "startup",
-        "family-owned",
-        "familienunternehmen",
-    ]
-    for kw in size_keywords:
-        if kw in t:
-            keyword_hits.append(kw)
-
-    return {
-        "employees_hits": employees_hits[:20],
-        "revenue_hits": revenue_hits[:20],
-        "keyword_hits": sorted(set(keyword_hits)),
-    }
+def _read_nested(source: Dict[str, Any], *keys: str) -> Any:
+    current: Any = source
+    for key in keys:
+        if not isinstance(current, dict):
+            return None
+        if key not in current:
+            return None
+        current = current[key]
+    return current
 
 
-def _build_target_update(meta_target_entity_stub: Dict[str, Any], size_signals: Dict[str, Any]) -> Dict[str, Any]:
-    # Non-authoritative enrichment: store signals only
-    update = dict(meta_target_entity_stub)
-
-    # Ensure structure fields exist if stub is minimal
-    update.setdefault("attributes", {})
-    attrs = update["attributes"]
-    if not isinstance(attrs, dict):
-        attrs = {}
-        update["attributes"] = attrs
-
-    attrs["company_size_signals"] = size_signals
-    return update
+def _value_or_nv(value: Any) -> Any:
+    if value is None:
+        return "n/v"
+    if isinstance(value, str) and value.strip() == "":
+        return "n/v"
+    return value
 
 
-class AgentAG20CompanySize(BaseAgent):
-    step_id = "AG-20"
-    agent_name = "ag20_company_size"
+def _dedupe_sources(sources: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    seen = set()
+    deduped: List[Dict[str, Any]] = []
+    for source in sources:
+        if not isinstance(source, dict):
+            continue
+        publisher = str(source.get("publisher", "")).strip()
+        url = str(source.get("url", "")).strip()
+        accessed = str(source.get("accessed_at_utc", "")).strip() or utc_now_iso()
+        key = (publisher, url)
+        if not publisher or not url or key in seen:
+            continue
+        seen.add(key)
+        deduped.append({"publisher": publisher, "url": url, "accessed_at_utc": accessed})
+    return deduped
+
+
+class AgentAG11CompanySize(BaseAgent):
+    step_id = "AG-11"
+    agent_name = "ag11_company_size"
 
     def run(
         self,
@@ -142,6 +99,7 @@ class AgentAG20CompanySize(BaseAgent):
         meta_target_entity_stub: Dict[str, Any],
     ) -> AgentResult:
         started_at_utc = utc_now_iso()
+
         company_name = _to_ascii(str(meta_case_normalized.get("company_name_canonical", ""))).strip()
         domain = str(meta_case_normalized.get("web_domain_normalized", "")).strip()
         entity_key = str(meta_case_normalized.get("entity_key", "")).strip()
@@ -149,61 +107,106 @@ class AgentAG20CompanySize(BaseAgent):
         if not company_name or not domain or not entity_key:
             return AgentResult(ok=False, output={"error": "missing required meta artifacts"})
 
-        candidate_paths = [
-            "/about",
-            "/company",
-            "/unternehmen",
-            "/about-us",
-            "/aboutus",
-            "/facts",
-            "/facts-and-figures",
-            "/facts-figures",
-            "/factsfigures",
-            "/career",
-            "/careers",
-            "/karriere",
-        ]
+        target_company_payload = case_input.get("target_company", {}) if isinstance(case_input, dict) else {}
+        quantitative_payload = _read_nested(target_company_payload, "quantitative_metrics") or {}
+        qualitative_payload = _read_nested(target_company_payload, "qualitative_context") or {}
 
-        used_sources: List[Dict[str, str]] = []
-        evidences: List[PageEvidence] = []
+        industry = (
+            case_input.get("industry")
+            or target_company_payload.get("industry")
+            or meta_target_entity_stub.get("industry")
+        )
 
-        base_url = f"https://{domain}".rstrip("/")
-        used_sources.append({"publisher": company_name, "url": base_url, "accessed_at_utc": utc_now_iso()})
+        annual_revenue = _coerce_float(
+            case_input.get("annual_revenue_eur")
+            or quantitative_payload.get("annual_revenue_eur")
+        )
+        inventory_value = _coerce_float(
+            case_input.get("mro_inventory_value_eur")
+            or quantitative_payload.get("mro_inventory_value_eur")
+        )
+        ppe_value = _coerce_float(
+            case_input.get("ppe_value_eur")
+            or quantitative_payload.get("ppe_value_eur")
+        )
+        production_sites = _coerce_int(
+            case_input.get("number_of_production_sites")
+            or quantitative_payload.get("number_of_production_sites")
+        )
 
-        for p in candidate_paths:
-            url = f"{base_url}{p}"
-            html = _fetch_text(url)
-            if not html:
-                continue
-            txt = _strip_html_to_text(html)
-            if not txt or len(txt) < 80:
-                continue
-            evidences.append(PageEvidence(url=url, text=txt))
-            used_sources.append({"publisher": company_name, "url": url, "accessed_at_utc": utc_now_iso()})
+        inventory_ratio = _coerce_float(
+            case_input.get("inventory_to_revenue_ratio")
+            or quantitative_payload.get("inventory_to_revenue_ratio")
+        )
+        if inventory_ratio is None and annual_revenue and inventory_value:
+            inventory_ratio = inventory_value / annual_revenue
 
-            # Keep it bounded; we only need a few pages for "signals"
-            if len(evidences) >= 3:
-                break
+        maintenance_maturity = (
+            case_input.get("maintenance_maturity")
+            or qualitative_payload.get("maintenance_maturity")
+        )
+        erp_system = case_input.get("erp_system") or qualitative_payload.get("erp_system")
+        m_and_a_activity = case_input.get("m_and_a_activity") or qualitative_payload.get("m_and_a_activity")
+        maintenance_structure = (
+            case_input.get("maintenance_structure")
+            or qualitative_payload.get("maintenance_structure")
+        )
+        operational_depth = case_input.get("operational_depth") or qualitative_payload.get("operational_depth")
 
-        combined_text = " ".join([ev.text for ev in evidences]).strip()
-        size_signals = _extract_size_signals(combined_text) if combined_text else {
-            "employees_hits": [],
-            "revenue_hits": [],
-            "keyword_hits": [],
+        quantitative_metrics = {
+            "annual_revenue_eur": _value_or_nv(annual_revenue),
+            "mro_inventory_value_eur": _value_or_nv(inventory_value),
+            "inventory_to_revenue_ratio": _value_or_nv(inventory_ratio),
+            "ppe_value_eur": _value_or_nv(ppe_value),
+            "number_of_production_sites": _value_or_nv(production_sites),
         }
 
-        target_update = _build_target_update(meta_target_entity_stub, size_signals)
+        qualitative_context = {
+            "maintenance_maturity": _value_or_nv(maintenance_maturity),
+            "erp_system": _value_or_nv(erp_system),
+            "m_and_a_activity": _value_or_nv(m_and_a_activity),
+            "maintenance_structure": _value_or_nv(maintenance_structure),
+            "operational_depth": _value_or_nv(operational_depth),
+        }
 
-        finished_at_utc = utc_now_iso()
+        company_size_profile = {
+            "agent_source": "AgentAG11CompanySize",
+            "target_company": {
+                "name": company_name,
+                "industry": _value_or_nv(industry),
+                "quantitative_metrics": quantitative_metrics,
+                "qualitative_context": qualitative_context,
+            },
+        }
+
+        entity_update = dict(meta_target_entity_stub)
+        entity_update.update(
+            {
+                "entity_id": "TGT-001",
+                "entity_type": "target_company",
+                "entity_name": company_name,
+                "domain": domain,
+                "entity_key": entity_key,
+            }
+        )
+        entity_update.setdefault("attributes", {})
+        if not isinstance(entity_update["attributes"], dict):
+            entity_update["attributes"] = {}
+        entity_update["attributes"]["company_size_profile"] = company_size_profile
 
         findings_notes = {
             "company_name_canonical": company_name,
             "web_domain_normalized": domain,
             "entity_key": entity_key,
-            "reviewed_pages": [ev.url for ev in evidences],
-            "signals": size_signals,
-            "scope_note": "Signals only; no authoritative company size claims are made without corroborating sources.",
+            "quantitative_metrics": quantitative_metrics,
+            "qualitative_context": qualitative_context,
+            "data_quality_note": "Values are mirrored from inputs when provided; missing fields remain 'n/v'.",
         }
+
+        sources_input = case_input.get("sources") if isinstance(case_input, dict) else None
+        sources = _dedupe_sources(sources_input or [])
+
+        finished_at_utc = utc_now_iso()
 
         output: Dict[str, Any] = {
             "step_meta": build_step_meta(
@@ -213,19 +216,20 @@ class AgentAG20CompanySize(BaseAgent):
                 started_at_utc=started_at_utc,
                 finished_at_utc=finished_at_utc,
             ),
-            "entities_delta": [target_update],
-            "relations_delta": [],  # REQUIRED by pipeline output contract (even if empty)
+            "entities_delta": [entity_update],
+            "relations_delta": [],
             "findings": [
                 {
-                    "summary": "Company size signals reviewed",
+                    "summary": "Company size profile assembled",
                     "notes": findings_notes,
                 }
             ],
-            "sources": _dedupe_sources(used_sources),
+            "sources": sources,
+            "company_size_profile": company_size_profile,
         }
 
         return AgentResult(ok=True, output=output)
 
 
 # NOTE: Wiring-safe alias for dynamic loaders expecting `Agent` symbol in this module.
-Agent = AgentAG20CompanySize
+Agent = AgentAG11CompanySize

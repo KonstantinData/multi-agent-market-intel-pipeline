@@ -12,15 +12,15 @@ from __future__ import annotations
 from src.agents.common.baseline_agent import BaselineAgent
 
 
-#note: Concrete agent class for AG-42 (ag42_customers_of_manufacturers).
+#note: Concrete agent class for AG-42 (ag42_customers_of_intake_company).
 class Agent(BaselineAgent):
     """
-    #note: Purpose: Customers of peer manufacturers (downstream customer discovery).
+    #note: Purpose: Customers of the intake company (downstream customer discovery).
     """
 
     step_id = "AG-42"
-    agent_name = "ag42_customers_of_manufacturers"
-    baseline_purpose = "Customers of peer manufacturers (downstream customer discovery)."
+    agent_name = "ag42_customers_of_intake_company"
+    baseline_purpose = "Customers of the intake company (downstream customer discovery)."
 
 
 #note: Explicit module-level alias used by the step registry.
