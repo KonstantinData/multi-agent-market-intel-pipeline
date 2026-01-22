@@ -35,7 +35,7 @@ STEP_ENTRYPOINTS: Dict[str, StepEntrypoint] = {
     "AG-31": StepEntrypoint("src.agents.ag31_markets_focus.agent", "Agent"),
     "AG-40": StepEntrypoint("src.agents.ag40_target_customers.agent", "Agent"),
     "AG-41": StepEntrypoint("src.agents.ag41_peer_discovery.agent", "Agent"),
-    "AG-42": StepEntrypoint("src.agents.ag42_customers_of_manufacturers.agent", "Agent"),
+    "AG-42": StepEntrypoint("src.agents.ag42_customers_of_intake_company.agent", "Agent"),
     "AG-50": StepEntrypoint("src.agents.ag50_projects_tenders.agent", "Agent"),
     "AG-51": StepEntrypoint("src.agents.ag51_strategic_changes.agent", "Agent"),
     "AG-60": StepEntrypoint("src.agents.ag60_industry_cycles.agent", "Agent"),
