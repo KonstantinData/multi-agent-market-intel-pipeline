@@ -23,5 +23,5 @@ class Agent(BaselineAgent):
     baseline_purpose = "Financial / solvency signals and public risk indicators."
 
 
-#note: Explicit module-level alias used by the step registry.
-AgentClass = Agent
+# NOTE: Explicit module-level alias used by the step registry.
+Agent = Agent21FinancialDevelopment
