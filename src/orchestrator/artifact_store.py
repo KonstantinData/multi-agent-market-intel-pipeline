@@ -29,7 +29,7 @@ def atomic_write_text(path: Path, content: str) -> None:
 #note: Write JSON atomically with deterministic formatting (sorted keys + stable indentation).
 def atomic_write_json(path: Path, payload: Any) -> None:
     text = json.dumps(payload, ensure_ascii=True, sort_keys=True, indent=2)
-    atomic_write_text(path, text + "\\n")
+    atomic_write_text(path, text + "\n")
 
 
 #note: Read JSON with a strict failure mode (invalid JSON is a hard error).

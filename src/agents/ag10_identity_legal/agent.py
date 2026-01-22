@@ -1,6 +1,5 @@
 """
-DESCRIPTION
------------
+Purpose:
 Agent AG-10 (Identity / Legal) extracts evidence-bound legal identity signals AND
 basic contact/location/social discovery signals for the target company.
 
@@ -158,22 +157,47 @@ def _extract_founding_year(text: str) -> str:
 # NOTE: Tries to find plausible legal name and legal form from a line containing known legal-form tokens.
 def _extract_legal_name_and_form(text: str) -> Tuple[str, str]:
     forms_ordered = [
-        "GmbH & Co. KG",
-        "GmbH & Co KG",
-        "GmbH",
-        "AG",
-        "UG",
-        "KG",
-        "OHG",
-        "LLC",
-        "Inc",
-        "Ltd",
-        "Limited",
-        "PLC",
-        "SE",
-        "BV",
-        "NV",
-    ]
+    "GmbH & Co. KG",
+    "GmbH & Co KG",
+    "GmbH & Co. KGaA",
+    "SE & Co. KGaA",
+    "GmbH",
+    "AG",
+    "UG",
+    "KGaA",
+    "eG",
+    "AöR",
+    "Anstalt des öffentlichen Rechts",
+    "KG",
+    "OHG",
+    "S.A.",
+    "SA",
+    "SAS",
+    "SASU",
+    "SARL",
+    "Sàrl",
+    "S.p.A.",
+    "S.r.l.",
+    "S.L.",
+    "S.L.U.",
+    "S.A.U.",
+    "Sp. z o.o.",
+    "a.s.",
+    "s.r.o.",
+    "AB",
+    "A/S",
+    "AS",
+    "Oy",
+    "LLP",
+    "LLC",
+    "Inc",
+    "Ltd",
+    "Limited",
+    "PLC",
+    "SE",
+    "BV",
+    "NV",
+]
     marker_regex = "|".join([re.escape(x) for x in forms_ordered])
     patterns = [re.compile(rf"\b(?:{marker_regex})\b")]
 
