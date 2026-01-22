@@ -179,12 +179,54 @@ Focus on companies in the same or related industries.
 """
         
         try:
+            # Define response schema for structured outputs
+            response_format = {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "network_research",
+                    "strict": True,
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "peers": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "entity_name": {"type": "string"},
+                                        "industry": {"type": "string"},
+                                        "rationale": {"type": "string"}
+                                    },
+                                    "required": ["entity_name", "industry", "rationale"],
+                                    "additionalProperties": False
+                                }
+                            },
+                            "customers": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "entity_name": {"type": "string"},
+                                        "industry": {"type": "string"},
+                                        "rationale": {"type": "string"}
+                                    },
+                                    "required": ["entity_name", "industry", "rationale"],
+                                    "additionalProperties": False
+                                }
+                            }
+                        },
+                        "required": ["peers", "customers"],
+                        "additionalProperties": False
+                    }
+                }
+            }
+            
             payload = {
                 "model": "gpt-4o-mini",
                 "messages": [
                     {
                         "role": "system",
-                        "content": "You are a business intelligence researcher. Find real companies that are competitors, suppliers, customers, or partners of the given company. Return JSON with 'peers' and 'customers' arrays. Each entry needs: entity_name, industry, rationale. Use real company names only."
+                        "content": "Find real competitors, suppliers, customers, and business partners for the given company. Focus on companies in the same or related industries. Return structured data with peers and customers arrays."
                     },
                     {
                         "role": "user", 
@@ -192,7 +234,8 @@ Focus on companies in the same or related industries.
                     }
                 ],
                 "temperature": 0.3,
-                "max_tokens": 1000
+                "max_tokens": 1000,
+                "response_format": response_format
             }
             
             headers = {"Authorization": f"Bearer {api_key}"}

@@ -114,12 +114,51 @@ Provide specific numbers where available, otherwise indicate 'n/v'.
 """
         
         try:
+            # Define response schema for structured outputs
+            response_format = {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "financial_analysis",
+                    "strict": True,
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "currency": {"type": "string"},
+                            "revenue_trend": {"type": "string"},
+                            "profitability_trend": {"type": "string"},
+                            "leverage_trend": {"type": "string"},
+                            "investment_pattern": {"type": "string"},
+                            "working_capital_pressure": {"type": "string"},
+                            "equity_ratio_2024": {"type": "string"},
+                            "trend_summary": {"type": "string"},
+                            "time_series": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "year": {"type": "integer"},
+                                        "revenue": {"type": "string"},
+                                        "ebitda": {"type": "string"},
+                                        "net_debt": {"type": "string"},
+                                        "capex": {"type": "string"}
+                                    },
+                                    "required": ["year", "revenue", "ebitda", "net_debt", "capex"],
+                                    "additionalProperties": False
+                                }
+                            }
+                        },
+                        "required": ["currency", "revenue_trend", "profitability_trend", "leverage_trend", "investment_pattern", "working_capital_pressure", "equity_ratio_2024", "trend_summary", "time_series"],
+                        "additionalProperties": False
+                    }
+                }
+            }
+            
             payload = {
                 "model": "gpt-4o-mini",
                 "messages": [
                     {
                         "role": "system",
-                        "content": "You are a financial analyst. Research and provide financial data for the given company. Return JSON with: currency, revenue_trend, profitability_trend, leverage_trend, investment_pattern, working_capital_pressure, time_series (array with year, revenue, ebitda, net_debt, capex), equity_ratio_2024, trend_summary. Use real data where possible, 'n/v' where not available."
+                        "content": "Research and provide financial data for the given company. Use real data where possible, 'n/v' where not available. Provide structured financial analysis."
                     },
                     {
                         "role": "user",
@@ -127,7 +166,8 @@ Provide specific numbers where available, otherwise indicate 'n/v'.
                     }
                 ],
                 "temperature": 0.1,
-                "max_tokens": 1000
+                "max_tokens": 1000,
+                "response_format": response_format
             }
             
             headers = {"Authorization": f"Bearer {api_key}"}

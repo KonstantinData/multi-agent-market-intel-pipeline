@@ -435,9 +435,29 @@ def _collect_evidence_lines(pages: List[PageEvidence], max_lines: int = 180) -> 
     return evidence_text, deduped_urls
 
 
-# NOTE: Calls OpenAI Chat Completions with strict instructions to extract ONLY evidence-bound JSON fields (legal identity).
+# NOTE: Calls OpenAI Chat Completions with structured outputs for legal identity extraction.
 def _openai_extract_legal_identity(evidence_text: str, api_key: str, timeout_s: float = 25.0) -> Dict[str, Any]:
     user_content = evidence_text.strip() or "NO_EVIDENCE"
+
+    # Define response schema for structured outputs
+    response_format = {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "legal_identity_extraction",
+            "strict": True,
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "legal_name": {"type": "string"},
+                    "legal_form": {"type": "string"},
+                    "founding_year": {"type": "string"},
+                    "registration_signals": {"type": "string"}
+                },
+                "required": ["legal_name", "legal_form", "founding_year", "registration_signals"],
+                "additionalProperties": False
+            }
+        }
+    }
 
     payload = {
         "model": "gpt-4o-mini",
@@ -445,21 +465,17 @@ def _openai_extract_legal_identity(evidence_text: str, api_key: str, timeout_s: 
             {
                 "role": "system",
                 "content": (
-                    "You are a strict information extractor. Extract ONLY from the provided evidence. "
-                    "Return JSON ONLY (no markdown, no commentary) with keys: "
-                    "legal_name, legal_form, founding_year, registration_signals. "
-                    "Rules: "
-                    "- If a field is not explicitly stated in evidence, output 'n/v'. "
-                    "- Do NOT guess or infer. "
-                    "- Do NOT invent registration numbers or identifiers. "
-                    "- registration_signals must be copied from evidence lines and should include a register marker "
-                    "  like Handelsregister/Registergericht/Amtsgericht/HRB/HRA if present; otherwise 'n/v'. "
-                    "- founding_year must be a 4-digit year (e.g., 1998) or 'n/v'."
+                    "Extract legal identity information from the provided evidence. "
+                    "If a field is not explicitly stated in evidence, output 'n/v'. "
+                    "Do NOT guess or infer. "
+                    "registration_signals must include register markers like Handelsregister/HRB/HRA if present. "
+                    "founding_year must be a 4-digit year or 'n/v'."
                 ),
             },
             {"role": "user", "content": user_content[:12000]},
         ],
         "temperature": 0,
+        "response_format": response_format
     }
 
     headers = {"Authorization": f"Bearer {api_key}"}
