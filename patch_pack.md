@@ -574,7 +574,7 @@ jobs:
           pip install -r requirements-dev.txt
       - name: Run linters
         run: |
-          flake8 src
+          ruff check src
       - name: Run tests
         run: |
           pytest -q
@@ -791,4 +791,3 @@ python scripts/verify_dod.py
 
 Write-Host "Patch applied. Backups stored in $BackupDir"
 ```
-
