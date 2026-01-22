@@ -141,6 +141,44 @@ steps:
         - "missing_required_sections"
         - "missing_required_fields"
 
+  - step_id: "AG-15"
+    agent_name: "ag15_network_mapper"
+    purpose: "Expand lead universe by identifying related companies and mapping business relationships"
+    inputs:
+      required_meta_artifacts:
+        - "case_normalized.json"
+        - "target_entity_stub.json"
+    outputs:
+      required_sections:
+        - "step_meta"
+        - "entities_delta"
+        - "relations_delta"
+        - "findings"
+        - "sources"
+      step_meta_required_fields:
+        - "step_id"
+        - "agent_name"
+        - "run_id"
+        - "started_at_utc"
+        - "finished_at_utc"
+        - "pipeline_version"
+      findings_required_fields:
+        - "network_expansion_summary"
+    validation:
+      hard_fail_if:
+        - "missing_required_sections"
+        - "missing_required_fields"
+        - "entities_without_relations"
+        - "claims_without_sources"
+        - "invalid_industry_scope"
+      gatekeeper_rules:
+        core_industries_only: ["Medical Technology", "Mechanical Engineering", "Electrical Engineering"]
+        relations_required_for_new_entities: true
+        source_required_fields:
+          - "publisher"
+          - "url"
+          - "accessed_at_utc"
+
   - step_id: "AG-20"
     agent_name: "ag20_size_evaluator"
     purpose: "Evaluate Liquisto lead fit based on company size profile signals"

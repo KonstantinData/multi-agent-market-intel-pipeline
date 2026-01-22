@@ -162,6 +162,5 @@ class AG21FinancialDevelopment(BaseAgent):
         }
 
 
-def create_agent() -> AG21FinancialDevelopment:
-    """Factory function to create AG-21 agent instance."""
-    return AG21FinancialDevelopment()
+# NOTE: Wiring-safe alias for dynamic loaders expecting `Agent` symbol in this module.
+Agent = AG21FinancialDevelopment
