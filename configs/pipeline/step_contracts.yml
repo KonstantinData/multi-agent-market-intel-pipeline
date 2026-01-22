@@ -167,3 +167,29 @@ steps:
       hard_fail_if:
         - "missing_required_sections"
         - "missing_required_fields"
+
+  - step_id: "AG-21"
+    agent_name: "ag21_financial_development"
+    purpose: "Collect historical financial KPIs and stability signals for Liquisto target sectors"
+    inputs:
+      required_meta_artifacts:
+        - "case_normalized.json"
+        - "target_entity_stub.json"
+    outputs:
+      required_sections:
+        - "step_meta"
+        - "entities_delta"
+        - "relations_delta"
+        - "findings"
+        - "sources"
+      step_meta_required_fields:
+        - "step_id"
+        - "agent_name"
+        - "run_id"
+        - "started_at_utc"
+        - "finished_at_utc"
+        - "pipeline_version"
+    validation:
+      hard_fail_if:
+        - "missing_required_sections"
+        - "missing_required_fields"

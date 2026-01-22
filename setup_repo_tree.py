@@ -175,7 +175,7 @@ def create_repo_tree(repo_root: Path) -> None:
         "ag10_identity_legal",
         "ag11_company_size",
         "ag20_Size_Evaluator",
-        "ag21_financial_signals",
+        "ag21_financial_developmet",
         "ag30_portfolio",
         "ag31_markets_focus",
         "ag40_target_customers",
