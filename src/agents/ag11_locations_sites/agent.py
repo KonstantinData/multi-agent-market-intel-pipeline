@@ -181,13 +181,13 @@ class AgentAG11LocationsSites(BaseAgent):
         for ev in pages:
             contributed = False
             for line in ev.text.split("\n"):
-                l = line.strip()
-                if not l:
+                stripped = line.strip()
+                if not stripped:
                     continue
-                site_type = _site_type_from_line(l)
+                site_type = _site_type_from_line(stripped)
                 if not site_type:
                     continue
-                city, country = _extract_location_from_line(l)
+                city, country = _extract_location_from_line(stripped)
                 site = {
                     "entity_type": "site",
                     "entity_key": f"{entity_key}#site:{_slugify(site_type)}:{_slugify(city or 'nv')}:{_slugify(country or 'nv')}",
