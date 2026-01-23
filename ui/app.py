@@ -387,22 +387,8 @@ if "switch_to_monitor" not in st.session_state:
     st.session_state.switch_to_monitor = False
 
 
-# Auto-switch logic
-selected_tab = 0  # Default to Intake
-if st.session_state.get('switch_to_monitor', False):
-    selected_tab = 1  # Switch to Monitor
-    st.session_state.switch_to_monitor = False
-elif st.session_state.get('auto_switch_to_results', False):
-    selected_tab = 2  # Switch to Results
-    st.session_state.auto_switch_to_results = False
-
-# Create tabs with programmatic selection
-if selected_tab == 0:
-    tab_intake, tab_monitor, tab_results = st.tabs(["**1) Intake**", "2) Run Monitor", "3) Results"])
-elif selected_tab == 1:
-    tab_intake, tab_monitor, tab_results = st.tabs(["1) Intake", "**2) Run Monitor**", "3) Results"])
-else:
-    tab_intake, tab_monitor, tab_results = st.tabs(["1) Intake", "2) Run Monitor", "**3) Results**"])
+# Create tabs
+tab_intake, tab_monitor, tab_results = st.tabs(["1) Intake", "2) Run Monitor", "3) Results"])
 
 
 # =====================================================
@@ -581,9 +567,9 @@ with tab_intake:
                     st.session_state.active_run_id = run_id
                     st.session_state.show_preview = False
                     st.session_state.draft_intake = None
-                    st.session_state.switch_to_monitor = True
 
                     st.success(f"✅ Run created: {run_id}")
+                    st.info("🔄 Please switch to Run Monitor tab to start the pipeline.")
                     st.rerun()
                     
             with col2:
@@ -694,10 +680,8 @@ with tab_monitor:
                         st.success("✅ Pipeline completed successfully!")
                         st.balloons()
                         
-                        # Auto-switch to Results tab
-                        st.info("🔄 Switching to Results...")
-                        st.session_state.auto_switch_to_results = True
-                        st.rerun()
+                        # Show instruction to switch to Results
+                        st.info("🔄 Please switch to Results tab to view the report.")
                     else:
                         st.progress(progress, text=f"Processing step {total_steps}...")
                         st.write(f"**Progress: {progress*100:.1f}% completed**")
