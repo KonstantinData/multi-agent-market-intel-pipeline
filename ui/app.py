@@ -322,8 +322,14 @@ def start_pipeline_subprocess(run_id: str, case_file: Path) -> subprocess.Popen:
 def tail_log(log_path: Path, max_lines: int = 200) -> str:
     if not log_path.exists():
         return "(no logs yet)"
-    lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
-    return "\n".join(lines[-max_lines:])
+    try:
+        content = log_path.read_text(encoding="utf-8", errors="replace")
+        if not content.strip():
+            return "(log file is empty)"
+        lines = content.splitlines()
+        return "\n".join(lines[-max_lines:])
+    except Exception as e:
+        return f"(error reading log: {e})"
 
 
 def archive_run(run_id: str) -> Path:
@@ -377,17 +383,26 @@ if "pipeline_running" not in st.session_state:
 if "auto_switch_to_results" not in st.session_state:
     st.session_state.auto_switch_to_results = False
 
+if "switch_to_monitor" not in st.session_state:
+    st.session_state.switch_to_monitor = False
 
-# Auto-switch to Results tab if pipeline completed
-default_tab = 0  # Default to Intake tab
-if st.session_state.get('auto_switch_to_results', False):
+
+# Auto-switch logic
+selected_tab = 0  # Default to Intake
+if st.session_state.get('switch_to_monitor', False):
+    selected_tab = 1  # Switch to Monitor
+    st.session_state.switch_to_monitor = False
+elif st.session_state.get('auto_switch_to_results', False):
+    selected_tab = 2  # Switch to Results
     st.session_state.auto_switch_to_results = False
-    default_tab = 2  # Switch to Results tab
-elif st.session_state.get('active_run_id'):
-    # If there's an active run, default to Monitor tab
-    default_tab = 1
 
-tab_intake, tab_monitor, tab_results = st.tabs(["1) Intake", "2) Run Monitor", "3) Results"])
+# Create tabs with programmatic selection
+if selected_tab == 0:
+    tab_intake, tab_monitor, tab_results = st.tabs(["**1) Intake**", "2) Run Monitor", "3) Results"])
+elif selected_tab == 1:
+    tab_intake, tab_monitor, tab_results = st.tabs(["1) Intake", "**2) Run Monitor**", "3) Results"])
+else:
+    tab_intake, tab_monitor, tab_results = st.tabs(["1) Intake", "2) Run Monitor", "**3) Results**"])
 
 
 # =====================================================
@@ -610,31 +625,45 @@ with tab_monitor:
 
         # Show loading animation when pipeline is running
         if st.session_state.get('pipeline_running', False):
-            st.markdown("""
-            <style>
-            @keyframes spin {
-                0% { transform: rotate(0deg); }
-                100% { transform: rotate(360deg); }
-            }
-            .loading-spinner {
-                border: 4px solid #f3f3f3;
-                border-top: 4px solid #ff4b4b;
-                border-radius: 50%;
-                width: 50px;
-                height: 50px;
-                animation: spin 1s linear infinite;
-                margin: 20px auto;
-            }
-            .loading-text {
-                text-align: center;
-                font-size: 18px;
-                color: #ff4b4b;
-                margin-top: 10px;
-            }
-            </style>
-            <div class="loading-spinner"></div>
-            <div class="loading-text">🚀 Pipeline is running...</div>
-            """, unsafe_allow_html=True)
+            # Check if pipeline is actually still running
+            manifest_path = run_root / "manifest.json"
+            if manifest_path.exists():
+                try:
+                    manifest = read_json(manifest_path)
+                    exports = manifest.get("exports", [])
+                    if len(exports) > 0:
+                        # Pipeline is done, stop animation
+                        st.session_state.pipeline_running = False
+                except Exception:
+                    pass
+            
+            # Only show animation if still running
+            if st.session_state.get('pipeline_running', False):
+                st.markdown("""
+                <style>
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+                .loading-spinner {
+                    border: 4px solid #f3f3f3;
+                    border-top: 4px solid #ff4b4b;
+                    border-radius: 50%;
+                    width: 50px;
+                    height: 50px;
+                    animation: spin 1s linear infinite;
+                    margin: 20px auto;
+                }
+                .loading-text {
+                    text-align: center;
+                    font-size: 18px;
+                    color: #ff4b4b;
+                    margin-top: 10px;
+                }
+                </style>
+                <div class="loading-spinner"></div>
+                <div class="loading-text">🚀 Pipeline is running...</div>
+                """, unsafe_allow_html=True)
 
         # Progress bar placeholder
         progress_placeholder = st.empty()
