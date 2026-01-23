@@ -74,7 +74,8 @@ def build_report_markdown(registry_snapshot: Dict[str, Any]) -> str:
             break
 
     company_name = (target or {}).get("entity_name") or (target or {}).get("legal_name") or "Unknown Company"
-    domain = (target or {}).get("domain") or "n/a"
+    # Use original domain from registry namespace, not from target entity
+    domain = registry_snapshot.get("namespace", "n/a")
 
     lines: List[str] = []
     lines.append("# Business Intelligence Report")
@@ -95,13 +96,27 @@ def build_report_markdown(registry_snapshot: Dict[str, Any]) -> str:
     lines.append("")
     if target:
         lines.append(f"**Legal Name:** {target.get('legal_name', 'n/a')}")
-        lines.append(f"**Domain:** {target.get('domain', 'n/a')}")
+        lines.append(f"**Domain:** {domain}")
         lines.append(f"**Legal Form:** {target.get('legal_form', 'n/a')}")
-        lines.append(f"**Founding Year:** {target.get('founding_year', 'n/a')}")
         lines.append(f"**Industry:** {target.get('industry', 'n/a')}")
+        lines.append("")
+        
+    # Contact Information
+    lines.append("## Contact Information")
+    lines.append("")
+    if target:
+        lines.append(f"**Street:** {target.get('street_name', 'n/a')} {target.get('house_number', 'n/a')}")
+        lines.append(f"**Post Code:** {target.get('postal_code', 'n/a')}")
         lines.append(f"**City:** {target.get('city', 'n/a')}")
-        lines.append(f"**Address:** {target.get('street_address', 'n/a')}, {target.get('postal_code', 'n/a')} {target.get('city', 'n/a')}")
+        lines.append(f"**Country:** {target.get('country', 'n/a')}")
         lines.append(f"**Phone:** {target.get('phone_number', 'n/a')}")
+        lines.append("")
+        
+    # Company History
+    lines.append("## Company History")
+    lines.append("")
+    if target:
+        lines.append(f"**Founding Year:** {target.get('founding_year', 'n/a')}")
         lines.append("")
         
         # Company size profile
