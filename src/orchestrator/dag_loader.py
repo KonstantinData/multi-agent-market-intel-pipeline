@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Optional, Any
 
 import yaml
 
@@ -25,8 +25,8 @@ class DagSpec:
     deps: Dict[str, List[str]]
 
 
-#note: Load dag.yml from disk and normalize into a DagSpec.
-def load_dag(dag_path: Path) -> DagSpec:
+#note: Load dag.yml from disk and normalize into a DagSpec with conditional execution support.
+def load_dag(dag_path: Path, case_input: Optional[Dict[str, Any]] = None) -> DagSpec:
     """
     #note: Supported formats:
 
@@ -41,12 +41,19 @@ def load_dag(dag_path: Path) -> DagSpec:
          AG-01: [AG-00]
          AG-10: [AG-00, AG-01]
        order: [AG-00, AG-01, ...]   # optional
+       
+    3) Conditional execution based on case_input regional settings
     """
     raw = yaml.safe_load(dag_path.read_text(encoding="utf-8"))
 
     #note: Linear format: list of step IDs.
     if isinstance(raw, list):
         steps = [str(s).strip() for s in raw if str(s).strip()]
+        
+        # Apply regional filtering for legal identity agents
+        if case_input:
+            steps = _filter_regional_agents(steps, case_input)
+            
         return DagSpec(steps_order=steps, deps={s: [] for s in steps})
 
     #note: Graph format.
@@ -62,10 +69,53 @@ def load_dag(dag_path: Path) -> DagSpec:
             order = [str(s).strip() for s in order_raw if str(s).strip()]
         else:
             order = _topo_sort(deps)
+            
+        # Apply regional filtering for legal identity agents
+        if case_input:
+            order = _filter_regional_agents(order, case_input)
+            # Update deps to only include filtered steps
+            filtered_deps = {k: v for k, v in deps.items() if k in order}
+            deps = filtered_deps
 
         return DagSpec(steps_order=order, deps=deps)
 
     raise ValueError(f"Unsupported DAG format in {dag_path}")
+
+
+#note: Filter regional legal identity agents based on case_input checkbox settings.
+def _filter_regional_agents(steps: List[str], case_input: Dict[str, Any]) -> List[str]:
+    """
+    Filter steps based on regional legal identity settings in case_input.
+    
+    Regional agents:
+    - AG-10.0: Germany (region_germany)
+    - AG-10.1: DACH (region_dach) 
+    - AG-10.2: Europe (region_europe)
+    - AG-10.3: UK (region_uk)
+    - AG-10.4: USA (region_usa)
+    """
+    regional_mapping = {
+        "AG-10.0": "region_germany",
+        "AG-10.1": "region_dach", 
+        "AG-10.2": "region_europe",
+        "AG-10.3": "region_uk",
+        "AG-10.4": "region_usa"
+    }
+    
+    filtered_steps = []
+    
+    for step in steps:
+        # Non-regional agents always included
+        if step not in regional_mapping:
+            filtered_steps.append(step)
+            continue
+            
+        # Regional agents only included if checkbox enabled
+        checkbox_key = regional_mapping[step]
+        if case_input.get(checkbox_key, False):
+            filtered_steps.append(step)
+            
+    return filtered_steps
 
 
 #note: Deterministic topological sort with lexical tie-breaking.

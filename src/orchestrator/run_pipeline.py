@@ -65,7 +65,7 @@ def run_pipeline(
     id_policy = _load_yaml(ctx.REPO_ROOT / "configs" / "pipeline" / "id_policy.yml") or {"key_fields": [], "prefix": "ENT"}
     registry = EntityRegistry(id_policy=id_policy, namespace=rid)
 
-    dag = load_dag(ctx.REPO_ROOT / "configs" / "pipeline" / "dag.yml")
+    dag = load_dag(ctx.REPO_ROOT / "configs" / "pipeline" / "dag.yml", case_input)
 
     #note: Meta artifacts propagated from AG-00 to all later steps.
     meta_case_normalized: Dict[str, Any] = {}
