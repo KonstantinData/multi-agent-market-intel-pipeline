@@ -110,9 +110,10 @@ def _filter_regional_agents(steps: List[str], case_input: Dict[str, Any]) -> Lis
             filtered_steps.append(step)
             continue
             
-        # Regional agents only included if checkbox enabled
+        # Regional agents only included if checkbox enabled (default Germany to True)
         checkbox_key = regional_mapping[step]
-        if case_input.get(checkbox_key, False):
+        checkbox_value = case_input.get(checkbox_key, step == "AG-10.0")  # Default Germany to True
+        if checkbox_value:
             filtered_steps.append(step)
             
     return filtered_steps
