@@ -379,6 +379,13 @@ tab_intake, tab_monitor, tab_results = st.tabs(["1) Intake", "2) Run Monitor", "
 # =====================================================
 with tab_intake:
     st.subheader("Intake (Required)")
+    st.markdown("""
+    <style>
+    .stTextInput > div > div > input {
+        font-size: 16px !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
     company_name_raw = st.text_input(
         "Company name *",
@@ -391,7 +398,7 @@ with tab_intake:
         key="intake_web_domain",
     )
 
-    st.subheader("Intake (Optional)")
+    st.subheader("Intake (Optional - Wenn Headquarter Informationen bekannt bitte ergänzen)")
     col1, col2, col3 = st.columns(3)
     with col1:
         city = st.text_input("City", placeholder="Stuttgart", key="intake_city")
@@ -423,23 +430,13 @@ with tab_intake:
         usa_enabled = st.checkbox("🇺🇸 USA (AG-10.4)", value=False, key="region_usa",
                                 help="United States legal forms (Inc, Corp, LLC) and ZIP codes")
 
-    # Live normalization preview (no artifacts written yet)
+    # Live normalization preview - hidden from UI
     company_name_canonical = normalize_whitespace(company_name_raw)
     domain_normalized = normalize_domain(web_domain_raw)
     domain_ok = bool(domain_normalized) and is_valid_domain(domain_normalized)
     entity_key_preview = build_entity_key_from_domain(domain_normalized) if domain_normalized else "domain:n/v"
 
-    st.markdown("### Live Preview (No artifacts created yet)")
-    st.code(
-        "\n".join(
-            [
-                f"company_name_canonical: {company_name_canonical or 'n/v'}",
-                f"web_domain_normalized: {domain_normalized or 'n/v'}",
-                f"entity_key: {entity_key_preview}",
-                f"domain_valid: {domain_ok}",
-            ]
-        )
-    )
+    # Hidden preview - no longer shown to user
 
     # Domain typo defense warning
     typo_info = {"warn": False}
@@ -498,50 +495,72 @@ with tab_intake:
         st.session_state.show_preview = True
 
     if st.session_state.show_preview and st.session_state.draft_intake is not None:
-        st.divider()
-        st.subheader("Confirmation Step (Artifacts will be created only after confirmation)")
+        # Show confirmation in modal-like container
+        with st.container():
+            st.markdown("""
+            <div style="
+                border: 2px solid #ff6b6b;
+                border-radius: 10px;
+                padding: 20px;
+                margin: 20px 0;
+                background-color: #f8f9fa;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            ">
+            """, unsafe_allow_html=True)
+            
+            st.subheader("🔍 Confirmation Step (Artifacts)")
+            
+            draft: IntakeCase = st.session_state.draft_intake
+            preview_payload = asdict(draft)
+            
+            # Replace None values with "keine Angaben"
+            for key, value in preview_payload.items():
+                if value is None:
+                    preview_payload[key] = "keine Angaben"
+                    
+            preview_payload["entity_key_preview"] = build_entity_key_from_domain(draft.web_domain)
+            preview_payload["created_at_utc_preview"] = utc_now_iso()
 
-        draft: IntakeCase = st.session_state.draft_intake
-        preview_payload = asdict(draft)
-        preview_payload["entity_key_preview"] = build_entity_key_from_domain(draft.web_domain)
-        preview_payload["created_at_utc_preview"] = utc_now_iso()
+            st.json(preview_payload)
 
-        st.json(preview_payload)
+            colX, colY = st.columns([1, 1])
+            with colX:
+                confirm_btn = st.button("✅ Confirm & Create Run", type="primary")
+            with colY:
+                edit_btn = st.button("✏️ Edit")
+                
+            st.markdown("</div>", unsafe_allow_html=True)
 
-        colX, colY = st.columns([1, 1])
-        with colX:
-            confirm_btn = st.button("Confirm & Create Run", type="primary")
-        with colY:
-            edit_btn = st.button("Edit")
+            if edit_btn:
+                st.session_state.show_preview = False
+                st.success("Edit the fields above and press START RESEARCH again.")
+                st.experimental_rerun()
 
-        if edit_btn:
-            st.session_state.show_preview = False
-            st.success("Edit the fields above and press START RESEARCH again.")
+            if confirm_btn:
+                run_id = build_run_id(draft.web_domain)
+                run_dirs = ensure_run_dirs(run_id)
 
-        if confirm_btn:
-            run_id = build_run_id(draft.web_domain)
-            run_dirs = ensure_run_dirs(run_id)
+                # Write raw input as case_input.json
+                case_input_path = run_dirs["meta"] / "case_input.json"
+                raw_payload = asdict(draft)
+                raw_payload["created_at_utc"] = utc_now_iso()
+                write_json(case_input_path, raw_payload)
 
-            # Write raw input as case_input.json
-            case_input_path = run_dirs["meta"] / "case_input.json"
-            raw_payload = asdict(draft)
-            raw_payload["created_at_utc"] = utc_now_iso()
-            write_json(case_input_path, raw_payload)
+                st.session_state.active_run_id = run_id
+                st.session_state.show_preview = False
+                st.session_state.draft_intake = None
 
-            st.session_state.active_run_id = run_id
-            st.session_state.show_preview = False
-            st.session_state.draft_intake = None
-
-            st.success(f"Run created: {run_id}")
-            st.code(str(case_input_path))
-            st.info("Go to Run Monitor -> Start Pipeline")
+                # Auto-switch to Run Monitor tab
+                st.success(f"✅ Run created: {run_id}")
+                st.info("🔄 Switching to Run Monitor...")
+                st.experimental_rerun()
 
 
 # =====================================================
 # 2) Run Monitor
 # =====================================================
 with tab_monitor:
-    st.subheader("Run Monitor")
+    st.subheader("📊 Run Monitor")
     run_id = st.session_state.active_run_id
 
     if not run_id:
@@ -550,27 +569,9 @@ with tab_monitor:
         st.write(f"Active run_id: `{run_id}`")
         run_root = RUNS_DIR / run_id
 
-        colA, colB, colC = st.columns([1, 1, 1])
+        # Start Pipeline button
+        start_btn = st.button("🚀 Start Pipeline", type="primary")
 
-        with colA:
-            start_btn = st.button("Start Pipeline (subprocess)", type="primary")
-
-        with colB:
-            rerun_ag00_btn = st.button("Re-run AG-00 (using corrected input if present)")
-
-        with colC:
-            archive_btn = st.button("Archive run", type="secondary")
-
-        if archive_btn:
-            try:
-                archived_path = archive_run(run_id)
-                st.success(f"Archived run to: {archived_path}")
-                st.session_state.active_run_id = None
-                st.experimental_rerun()
-            except Exception as e:
-                st.error(f"Archive failed: {e}")
-
-        # Start pipeline using case_input.json
         if start_btn:
             case_input_path = run_root / "meta" / "case_input.json"
             if not case_input_path.exists():
@@ -579,119 +580,64 @@ with tab_monitor:
                 try:
                     proc = start_pipeline_subprocess(run_id, case_input_path)
                     st.session_state.pipeline_proc_pid = proc.pid
-                    st.success(f"Pipeline started. PID={proc.pid}")
+                    st.success(f"✅ Pipeline started. PID={proc.pid}")
                 except FileNotFoundError:
                     st.error("Orchestrator entrypoint not found: src.orchestrator.run_pipeline")
 
-        # Re-run AG-00 using corrected input if present
-        if rerun_ag00_btn:
-            corrected = run_root / "meta" / "case_corrected.json"
-            case_file = corrected if corrected.exists() else (run_root / "meta" / "case_input.json")
-            if not case_file.exists():
-                st.error("No case file found to run AG-00.")
-            else:
-                try:
-                    proc = start_pipeline_subprocess(run_id, case_file)
-                    st.session_state.pipeline_proc_pid = proc.pid
-                    st.success(f"AG-00 re-run started. PID={proc.pid} case_file={case_file.name}")
-                except Exception as e:
-                    st.error(f"Re-run failed: {e}")
-
-        st.markdown("### Run folders")
-        st.code(str(run_root))
-
-        # Edit intake (Soft-Fix)
-        st.markdown("### Edit Intake (Soft-Fix)")
-
-        meta_dir = run_root / "meta"
-        case_input_path = meta_dir / "case_input.json"
-        corrected_path = meta_dir / "case_corrected.json"
-        intake_history_dir = meta_dir / "intake_history"
-        intake_history_dir.mkdir(parents=True, exist_ok=True)
-
-        current_payload = {}
-        if case_input_path.exists():
+        # Progress bar placeholder
+        progress_placeholder = st.empty()
+        
+        # Check pipeline status and show progress
+        manifest_path = run_root / "manifest.json"
+        if manifest_path.exists():
             try:
-                current_payload = read_json(case_input_path)
-            except Exception:
-                current_payload = {}
-
-        # If corrected exists, show it as current
-        if corrected_path.exists():
-            try:
-                current_payload = read_json(corrected_path)
-            except Exception:
-                pass
-
-        with st.form("edit_intake_form"):
-            e_company_name = st.text_input("Company name *", value=str(current_payload.get("company_name", "")))
-            e_web_domain = st.text_input("Web domain *", value=str(current_payload.get("web_domain", "")))
-            e_city = st.text_input("City", value=str(current_payload.get("city") or ""))
-            e_postal = st.text_input("Postal code", value=str(current_payload.get("postal_code") or ""))
-            e_street = st.text_input("Street Address", value=str(current_payload.get("street_address") or ""))
-            e_phone = st.text_input("Phone Number", value=str(current_payload.get("phone_number") or ""))
-            e_industry = st.text_input("Industry", value=str(current_payload.get("industry") or ""))
-            e_country = st.text_input("Country", value=str(current_payload.get("country") or ""))
-            e_parent = st.text_input("Parent company", value=str(current_payload.get("parent_company") or ""))
-            e_child = st.text_input("Child company", value=str(current_payload.get("child_company") or ""))
-            
-            st.write("**Regional Legal Identity Settings:**")
-            col_e1, col_e2, col_e3 = st.columns(3)
-            with col_e1:
-                e_germany = st.checkbox("🇩🇪 Germany", value=current_payload.get("region_germany", True))
-                e_dach = st.checkbox("🇦🇹🇨🇭 DACH", value=current_payload.get("region_dach", False))
-            with col_e2:
-                e_europe = st.checkbox("🇪🇺 Europe", value=current_payload.get("region_europe", False))
-                e_uk = st.checkbox("🇬🇧 UK", value=current_payload.get("region_uk", False))
-            with col_e3:
-                e_usa = st.checkbox("🇺🇸 USA", value=current_payload.get("region_usa", False))
-
-            save_correction = st.form_submit_button("Save correction (case_corrected.json)")
-
-        if save_correction:
-            # Audit trail: snapshot old files with timestamp
-            ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-            if case_input_path.exists():
-                snap = intake_history_dir / f"{ts}__case_input.json"
-                shutil.copyfile(case_input_path, snap)
-
-            if corrected_path.exists():
-                snap = intake_history_dir / f"{ts}__case_corrected.json"
-                shutil.copyfile(corrected_path, snap)
-
-            corrected_payload = {
-                "company_name": normalize_whitespace(e_company_name),
-                "web_domain": normalize_domain(e_web_domain),
-                "city": normalize_whitespace(e_city) or None,
-                "postal_code": normalize_whitespace(e_postal) or None,
-                "street_address": normalize_whitespace(e_street) or None,
-                "phone_number": normalize_whitespace(e_phone) or None,
-                "industry": normalize_whitespace(e_industry) or None,
-                "country": normalize_whitespace(e_country) or None,
-                "parent_company": normalize_whitespace(e_parent) or None,
-                "child_company": normalize_whitespace(e_child) or None,
-                "region_germany": e_germany,
-                "region_dach": e_dach,
-                "region_europe": e_europe,
-                "region_uk": e_uk,
-                "region_usa": e_usa,
-                "corrected_at_utc": utc_now_iso(),
-            }
-
-            # Validation: require correct domain before saving
-            dn = corrected_payload["web_domain"]
-            if not corrected_payload["company_name"]:
-                st.error("company_name is required.")
-            elif not dn or not is_valid_domain(dn):
-                st.error("web_domain is invalid. Correction was not saved.")
-            else:
-                write_json(corrected_path, corrected_payload)
-                st.success(f"Saved correction: {corrected_path.name}")
-                st.info("Use 'Re-run AG-00' to regenerate normalized artifacts from corrected input.")
+                manifest = read_json(manifest_path)
+                steps_executed = manifest.get("steps_executed", [])
+                total_steps = 30  # Approximate total steps in pipeline
+                progress = min(len(steps_executed) / total_steps, 1.0)
+                
+                with progress_placeholder.container():
+                    st.progress(progress)
+                    st.write(f"Progress: {len(steps_executed)}/{total_steps} steps completed ({progress*100:.1f}%)")
+                    
+                    if progress >= 1.0:
+                        st.success("✅ Pipeline completed!")
+                        
+                        # Download buttons
+                        col_dl1, col_dl2 = st.columns(2)
+                        
+                        report_path = run_root / "exports" / "report.md"
+                        entities_path = run_root / "exports" / "entities.json"
+                        
+                        with col_dl1:
+                            if report_path.exists():
+                                st.download_button(
+                                    label="📊 Download Report (MD)",
+                                    data=report_path.read_text(encoding="utf-8"),
+                                    file_name=f"report_{run_id}.md",
+                                    mime="text/markdown"
+                                )
+                        
+                        with col_dl2:
+                            if entities_path.exists():
+                                st.download_button(
+                                    label="📊 Download Entities (JSON)",
+                                    data=entities_path.read_text(encoding="utf-8"),
+                                    file_name=f"entities_{run_id}.json",
+                                    mime="application/json"
+                                )
+                        
+            except Exception as e:
+                st.error(f"Error reading manifest: {e}")
+        
+        # Hidden background info - no longer shown
+        # st.markdown("### Run folders")
+        # st.code(str(run_root))
 
         # Logs
         log_path = run_root / "logs" / "pipeline.log"
-        st.text_area("pipeline.log (tail)", tail_log(log_path), height=320)
+        with st.expander("📄 View Pipeline Logs"):
+            st.text_area("pipeline.log (tail)", tail_log(log_path), height=320)
 
 
 # =====================================================
