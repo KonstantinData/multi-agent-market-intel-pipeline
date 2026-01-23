@@ -132,8 +132,11 @@ Domain: {domain}
 Extract Austrian or Swiss legal identity information from the company's Impressum/legal notice.
 Focus on DACH region legal requirements and address formats.
 
+IMPORTANT: Always search for the COMPLETE legal company name, even if the input already contains a legal form.
+For example: "Company AG" might actually be "Company AG & Co. KG" - find the full name.
+
 Find:
-1. Complete legal company name (including legal form)
+1. Complete legal company name (including ALL legal forms)
 2. Legal form (Austria: GmbH, AG, e.U., OG, KG / Switzerland: AG, GmbH, Einzelfirma)
 3. Address: Street name, house number (may include /Top/Tür for Austria), 4-digit postal code, city, state/canton
 4. Country (Austria/Österreich or Switzerland/Schweiz)
@@ -170,7 +173,7 @@ Find:
                 "messages": [
                     {
                         "role": "system",
-                        "content": "Extract Austrian or Swiss legal identity information. Use 'n/v' only if information is unavailable. Country codes: AT for Austria, CH for Switzerland. Focus on DACH legal forms and 4-digit postal codes."
+                        "content": "Extract Austrian or Swiss legal identity information. ALWAYS find the complete legal company name, even if the input already contains a legal form. Use 'n/v' only if information is unavailable. Country codes: AT for Austria, CH for Switzerland. Focus on DACH legal forms and 4-digit postal codes."
                     },
                     {
                         "role": "user",

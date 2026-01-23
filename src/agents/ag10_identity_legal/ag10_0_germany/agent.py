@@ -126,9 +126,12 @@ Domain: {domain}
 Extract German legal identity information from the company's Impressum (legal notice).
 Focus on German legal requirements and address formats.
 
+IMPORTANT: Always search for the COMPLETE legal company name, even if the input already contains a legal form.
+For example: "IMS Gear SE" might actually be "IMS Gear SE & Co. KGaA" - find the full name.
+
 Find:
-1. Complete legal company name (including legal form like GmbH, AG, etc.)
-2. Legal form (GmbH, UG, AG, SE, KGaA, etc.)
+1. Complete legal company name (including ALL legal forms like GmbH, AG, SE & Co. KGaA, etc.)
+2. Legal form (GmbH, UG, AG, SE, KGaA, SE & Co. KGaA, etc.)
 3. German address: Street name, house number, PLZ (5-digit), city, state
 4. Only extract information that appears on the company's official website/Impressum
 """
@@ -161,7 +164,7 @@ Find:
                 "messages": [
                     {
                         "role": "system",
-                        "content": "Extract German legal identity information from Impressum data. Use 'n/v' only if information is completely unavailable. Focus on official German legal forms and address formats."
+                        "content": "Extract German legal identity information from Impressum data. ALWAYS find the complete legal company name, even if the input already contains a legal form. Use 'n/v' only if information is completely unavailable. Focus on official German legal forms and address formats."
                     },
                     {
                         "role": "user",
