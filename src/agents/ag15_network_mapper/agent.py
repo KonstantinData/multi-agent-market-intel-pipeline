@@ -7,7 +7,6 @@ based on the Intake Company's business segment and customer base.
 
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List
-from urllib.parse import quote_plus
 
 from ..common.base_agent import BaseAgent, AgentResult
 

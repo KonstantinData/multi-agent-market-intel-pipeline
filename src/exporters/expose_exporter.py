@@ -77,7 +77,7 @@ def build_report_markdown(registry_snapshot: Dict[str, Any]) -> str:
     domain = (target or {}).get("domain") or "n/a"
 
     lines: List[str] = []
-    lines.append(f"# Business Intelligence Report")
+    lines.append("# Business Intelligence Report")
     lines.append(f"## {company_name}")
     lines.append("")
     lines.append("---")
