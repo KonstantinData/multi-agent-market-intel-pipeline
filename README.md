@@ -233,25 +233,37 @@ pip install -r requirements-dev.txt
 
 ---
 
-## How to run (planned CLI entrypoint)
+## How to run
 
-The orchestration entrypoint is:
+### Streamlit UI (Recommended)
 
 ```bash
-python -m src.orchestrator.run_pipeline
+streamlit run ui/app.py
 ```
 
-A typical run expects a case input with:
+The UI provides:
+- **Intake form** with company details (name, domain, address, phone, industry)
+- **Run monitoring** with real-time logs
+- **Results viewer** with professional business reports
 
-- `company_name`
-- `company_domain`
+### CLI entrypoint
 
-Example case format:
+```bash
+python -m src.orchestrator.run_pipeline --case-file case_input.json --run-id my_run
+```
+
+A typical case input includes:
 
 ```json
 {
-  "company_name": "GROB-WERKE GmbH & Co. KG",
-  "company_domain": "grobgroup.com"
+  "company_name": "Example Manufacturing GmbH",
+  "web_domain": "example-manufacturing.com",
+  "city": "Munich",
+  "postal_code": "80331",
+  "street_address": "Musterstraße 123",
+  "phone_number": "+49 89 123456",
+  "industry": "Manufacturing",
+  "country": "Germany"
 }
 ```
 
