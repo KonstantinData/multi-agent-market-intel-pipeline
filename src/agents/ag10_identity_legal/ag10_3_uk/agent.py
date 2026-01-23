@@ -15,7 +15,7 @@ import json
 import os
 import re
 from datetime import datetime, timezone
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, Optional
 
 import httpx
 
