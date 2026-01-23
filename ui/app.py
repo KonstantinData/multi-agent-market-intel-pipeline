@@ -319,20 +319,58 @@ def start_pipeline_subprocess(run_id: str, case_file: Path) -> subprocess.Popen:
     return proc
 
 
-def tail_log(log_path: Path, max_lines: int = 200) -> str:
-    if not log_path.exists():
-        return "(no logs yet)"
-    try:
-        content = log_path.read_text(encoding="utf-8", errors="replace")
-        if not content.strip():
-            return "(log file is empty)"
-        lines = content.splitlines()
-        return "\n".join(lines[-max_lines:])
-    except Exception as e:
-        return f"(error reading log: {e})"
-
-
-def archive_run(run_id: str) -> Path:
+def get_pipeline_progress(run_root: Path) -> dict[str, Any]:
+    """
+    Calculate pipeline progress based on completed steps in the steps directory.
+    """
+    steps_dir = run_root / "steps"
+    manifest_path = run_root / "manifest.json"
+    
+    # Expected steps from DAG
+    expected_steps = [
+        "AG-00", "AG-01", "AG-10", "AG-11", "AG-15", "AG-20", "AG-21",
+        "AG-30", "AG-31", "AG-40", "AG-41", "AG-42", "AG-50", "AG-51",
+        "AG-60", "AG-61", "AG-62", "AG-70", "AG-71", "AG-72", "AG-80",
+        "AG-81", "AG-82", "AG-83", "AG-90"
+    ]
+    
+    completed_steps = []
+    if steps_dir.exists():
+        for step_dir in steps_dir.iterdir():
+            if step_dir.is_dir() and (step_dir / "output.json").exists():
+                completed_steps.append(step_dir.name)
+    
+    # Check if pipeline is fully complete (manifest with exports exists)
+    pipeline_complete = False
+    if manifest_path.exists():
+        try:
+            manifest = read_json(manifest_path)
+            exports = manifest.get("exports", [])
+            pipeline_complete = len(exports) > 0
+        except Exception:
+            pass
+    
+    total_steps = len(expected_steps)
+    completed_count = len(completed_steps)
+    
+    if pipeline_complete:
+        progress = 1.0
+        status = "completed"
+    elif completed_count > 0:
+        progress = completed_count / total_steps
+        status = "running"
+    else:
+        progress = 0.0
+        status = "not_started"
+    
+    return {
+        "progress": progress,
+        "status": status,
+        "completed_steps": completed_count,
+        "total_steps": total_steps,
+        "completed_step_names": sorted(completed_steps),
+        "pipeline_complete": pipeline_complete
+    }
     """
     Moves artifacts/runs/<run_id> to artifacts/runs_archived/<run_id>
     """
@@ -380,21 +418,39 @@ if "pipeline_running" not in st.session_state:
     st.session_state.pipeline_running = False
 
 
-if "auto_switch_to_results" not in st.session_state:
-    st.session_state.auto_switch_to_results = False
+if "current_tab" not in st.session_state:
+    st.session_state.current_tab = "intake"
 
 if "switch_to_monitor" not in st.session_state:
     st.session_state.switch_to_monitor = False
 
+if "switch_to_results" not in st.session_state:
+    st.session_state.switch_to_results = False
 
-# Create tabs
-tab_intake, tab_monitor, tab_results = st.tabs(["1) Intake", "2) Run Monitor", "3) Results"])
+
+# Handle automatic tab switching
+if st.session_state.switch_to_monitor:
+    st.session_state.current_tab = "monitor"
+    st.session_state.switch_to_monitor = False
+    st.rerun()
+
+if st.session_state.switch_to_results:
+    st.session_state.current_tab = "results"
+    st.session_state.switch_to_results = False
+    st.rerun()
+
+# Create tabs with active indication
+if st.session_state.current_tab == "intake":
+    tab_intake, tab_monitor, tab_results = st.tabs(["**1) Intake**", "2) Run Monitor", "3) Results"])
+elif st.session_state.current_tab == "monitor":
+    tab_intake, tab_monitor, tab_results = st.tabs(["1) Intake", "**2) Run Monitor**", "3) Results"])
+else:
+    tab_intake, tab_monitor, tab_results = st.tabs(["1) Intake", "2) Run Monitor", "**3) Results**"])
 
 
-# =====================================================
-# 1) Intake
-# =====================================================
+# Detect tab clicks and update current_tab
 with tab_intake:
+    st.session_state.current_tab = "intake"
     st.subheader("Intake (Required)")
     st.markdown("""
     <style>
@@ -567,9 +623,9 @@ with tab_intake:
                     st.session_state.active_run_id = run_id
                     st.session_state.show_preview = False
                     st.session_state.draft_intake = None
+                    st.session_state.switch_to_monitor = True
 
                     st.success(f"✅ Run created: {run_id}")
-                    st.info("🔄 Please switch to Run Monitor tab to start the pipeline.")
                     st.rerun()
                     
             with col2:
@@ -584,6 +640,7 @@ with tab_intake:
 # 2) Run Monitor
 # =====================================================
 with tab_monitor:
+    st.session_state.current_tab = "monitor"
     st.subheader("📊 Run Monitor")
     run_id = st.session_state.active_run_id
 
@@ -611,17 +668,10 @@ with tab_monitor:
 
         # Show loading animation when pipeline is running
         if st.session_state.get('pipeline_running', False):
-            # Check if pipeline is actually still running
-            manifest_path = run_root / "manifest.json"
-            if manifest_path.exists():
-                try:
-                    manifest = read_json(manifest_path)
-                    exports = manifest.get("exports", [])
-                    if len(exports) > 0:
-                        # Pipeline is done, stop animation
-                        st.session_state.pipeline_running = False
-                except Exception:
-                    pass
+            # Check if pipeline is actually complete
+            progress_info = get_pipeline_progress(run_root)
+            if progress_info["pipeline_complete"]:
+                st.session_state.pipeline_running = False
             
             # Only show animation if still running
             if st.session_state.get('pipeline_running', False):
@@ -655,40 +705,32 @@ with tab_monitor:
         progress_placeholder = st.empty()
         
         # Check pipeline status and show progress
-        manifest_path = run_root / "manifest.json"
-        if manifest_path.exists():
-            try:
-                manifest = read_json(manifest_path)
-                steps_executed = manifest.get("steps_executed", [])
-                total_steps = len(steps_executed)  # Use actual steps count
-                exports = manifest.get("exports", [])
-                
-                # Pipeline is complete if exports exist
-                pipeline_complete = len(exports) > 0
-                
-                if pipeline_complete:
-                    st.session_state.pipeline_running = False
-                    progress = 1.0
-                else:
-                    # Show progress based on steps
-                    estimated_total = 26  # Based on your log
-                    progress = min(total_steps / estimated_total, 0.95)  # Max 95% until exports
-                
-                with progress_placeholder.container():
-                    if pipeline_complete:
-                        st.progress(1.0, text="Pipeline completed successfully!")
-                        st.success("✅ Pipeline completed successfully!")
-                        st.balloons()
-                        
-                        # Show instruction to switch to Results
-                        st.info("🔄 Please switch to Results tab to view the report.")
-                    else:
-                        st.progress(progress, text=f"Processing step {total_steps}...")
-                        st.write(f"**Progress: {progress*100:.1f}% completed**")
-                        
-            except Exception as e:
-                st.error(f"Error reading manifest: {e}")
+        progress_info = get_pipeline_progress(run_root)
+        
+        with progress_placeholder.container():
+            if progress_info["pipeline_complete"]:
                 st.session_state.pipeline_running = False
+                st.progress(1.0, text="Pipeline completed successfully!")
+                st.success("✅ Pipeline completed successfully!")
+                st.balloons()
+                
+                # Auto-switch to Results tab
+                st.session_state.switch_to_results = True
+                st.rerun()
+            elif progress_info["status"] == "running":
+                progress = progress_info["progress"]
+                completed = progress_info["completed_steps"]
+                total = progress_info["total_steps"]
+                
+                st.progress(progress, text=f"Processing steps... ({completed}/{total} completed)")
+                st.write(f"**Progress: {progress*100:.1f}% completed**")
+                
+                # Show last completed step
+                if progress_info["completed_step_names"]:
+                    last_step = progress_info["completed_step_names"][-1]
+                    st.write(f"Last completed: {last_step}")
+            else:
+                st.info("Pipeline not started yet. Click 'Start Pipeline' to begin.")
         
         # Hidden background info - no longer shown
         # st.markdown("### Run folders")
@@ -708,6 +750,7 @@ with tab_monitor:
 # 3) Results
 # =====================================================
 with tab_results:
+    st.session_state.current_tab = "results"
     st.subheader("📊 Results")
     run_id = st.session_state.active_run_id
 
