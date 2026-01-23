@@ -307,7 +307,12 @@ def start_pipeline_subprocess(run_id: str, case_file: Path) -> subprocess.Popen:
     ]
 
     run_log_path = RUNS_DIR / run_id / "logs" / "pipeline.log"
-    log_f = open(run_log_path, "a", encoding="utf-8")  # noqa: SIM115
+    
+    # Ensure log directory exists
+    run_log_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    # Use context manager to properly handle file closing
+    log_f = open(run_log_path, "a", encoding="utf-8")
 
     proc = subprocess.Popen(
         cmd,
@@ -316,6 +321,10 @@ def start_pipeline_subprocess(run_id: str, case_file: Path) -> subprocess.Popen:
         stderr=log_f,
         env=_build_subprocess_env(),
     )
+    
+    # Store file handle in process object for later cleanup
+    proc._log_file = log_f  # type: ignore
+    
     return proc
 
 
@@ -328,10 +337,10 @@ def get_pipeline_progress(run_root: Path) -> dict[str, Any]:
     
     # Expected steps from DAG
     expected_steps = [
-        "AG-00", "AG-01", "AG-10", "AG-11", "AG-15", "AG-20", "AG-21",
-        "AG-30", "AG-31", "AG-40", "AG-41", "AG-42", "AG-50", "AG-51",
-        "AG-60", "AG-61", "AG-62", "AG-70", "AG-71", "AG-72", "AG-80",
-        "AG-81", "AG-82", "AG-83", "AG-90"
+        "AG-00", "AG-01", "AG-10", "AG-10.0", "AG-10.1", "AG-10.2", "AG-10.3", "AG-10.4",
+        "AG-11", "AG-15", "AG-20", "AG-21", "AG-30", "AG-31", "AG-40", "AG-41", "AG-42", 
+        "AG-50", "AG-51", "AG-60", "AG-61", "AG-62", "AG-70", "AG-71", "AG-72", 
+        "AG-80", "AG-81", "AG-82", "AG-83", "AG-90"
     ]
     
     completed_steps = []
@@ -371,6 +380,28 @@ def get_pipeline_progress(run_root: Path) -> dict[str, Any]:
         "completed_step_names": sorted(completed_steps),
         "pipeline_complete": pipeline_complete
     }
+
+
+def tail_log(log_path: Path, lines: int = 50) -> str:
+    """
+    Read the last N lines from a log file.
+    """
+    if not log_path.exists():
+        return "(no logs yet)"
+    
+    try:
+        content = log_path.read_text(encoding="utf-8")
+        if not content.strip():
+            return "(no logs yet)"
+        
+        log_lines = content.splitlines()
+        if len(log_lines) <= lines:
+            return content
+        
+        return "\n".join(log_lines[-lines:])
+    except Exception:
+        return "(error reading logs)"
+def archive_run(run_id: str) -> Path:
     """
     Moves artifacts/runs/<run_id> to artifacts/runs_archived/<run_id>
     """
@@ -450,7 +481,7 @@ else:
 
 # Detect tab clicks and update current_tab
 with tab_intake:
-    st.session_state.current_tab = "intake"
+    # Don't set session state here - it causes rerun loops
     st.subheader("Intake (Required)")
     st.markdown("""
     <style>
@@ -540,13 +571,18 @@ with tab_intake:
 
     # START RESEARCH should be disabled if required fields invalid
     required_ok = bool(company_name_canonical) and domain_ok
+    
+    # Check if at least one region is selected
+    regions_selected = any([germany_enabled, dach_enabled, europe_enabled, uk_enabled, usa_enabled])
+    if not regions_selected:
+        st.warning("⚠️ Please select at least one region for legal identity research.")
 
     # If typo warning is present, require explicit confirmation
     confirm_domain_checkbox = False
     if typo_info.get("warn"):
         confirm_domain_checkbox = st.checkbox("I confirm the domain is correct (typo warning acknowledged)")
 
-    start_disabled = (not required_ok) or (typo_info.get("warn") and not confirm_domain_checkbox)
+    start_disabled = (not required_ok) or (not regions_selected) or (typo_info.get("warn") and not confirm_domain_checkbox)
 
     colA, colB = st.columns([1, 1])
     with colA:
@@ -640,7 +676,7 @@ with tab_intake:
 # 2) Run Monitor
 # =====================================================
 with tab_monitor:
-    st.session_state.current_tab = "monitor"
+    # Don't set session state here - it causes rerun loops
     st.subheader("📊 Run Monitor")
     run_id = st.session_state.active_run_id
 
@@ -707,6 +743,20 @@ with tab_monitor:
         # Check pipeline status and show progress
         progress_info = get_pipeline_progress(run_root)
         
+        # Check if subprocess is still running (if we have a PID)
+        subprocess_status = "unknown"
+        if st.session_state.get('pipeline_proc_pid'):
+            try:
+                import psutil
+                if psutil.pid_exists(st.session_state.pipeline_proc_pid):
+                    subprocess_status = "running"
+                else:
+                    subprocess_status = "terminated"
+                    st.session_state.pipeline_running = False
+            except ImportError:
+                # psutil not available, skip process check
+                pass
+        
         with progress_placeholder.container():
             if progress_info["pipeline_complete"]:
                 st.session_state.pipeline_running = False
@@ -729,6 +779,10 @@ with tab_monitor:
                 if progress_info["completed_step_names"]:
                     last_step = progress_info["completed_step_names"][-1]
                     st.write(f"Last completed: {last_step}")
+                    
+                # Show subprocess status if available
+                if subprocess_status == "terminated" and not progress_info["pipeline_complete"]:
+                    st.error("⚠️ Pipeline process terminated unexpectedly. Check logs for errors.")
             else:
                 st.info("Pipeline not started yet. Click 'Start Pipeline' to begin.")
         
@@ -750,7 +804,7 @@ with tab_monitor:
 # 3) Results
 # =====================================================
 with tab_results:
-    st.session_state.current_tab = "results"
+    # Don't set session state here - it causes rerun loops
     st.subheader("📊 Results")
     run_id = st.session_state.active_run_id
 
