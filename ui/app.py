@@ -379,11 +379,13 @@ if "auto_switch_to_results" not in st.session_state:
 
 
 # Auto-switch to Results tab if pipeline completed
+default_tab = 0  # Default to Intake tab
 if st.session_state.get('auto_switch_to_results', False):
     st.session_state.auto_switch_to_results = False
-    # Force switch to Results tab
-    st.switch_page("Results")
-
+    default_tab = 2  # Switch to Results tab
+elif st.session_state.get('active_run_id'):
+    # If there's an active run, default to Monitor tab
+    default_tab = 1
 
 tab_intake, tab_monitor, tab_results = st.tabs(["1) Intake", "2) Run Monitor", "3) Results"])
 
@@ -497,6 +499,10 @@ with tab_intake:
         reset_btn = st.button("Reset Intake")
 
     if reset_btn:
+        # Clear all session state
+        for key in list(st.session_state.keys()):
+            if key.startswith(('intake_', 'region_')):
+                del st.session_state[key]
         st.session_state.show_preview = False
         st.session_state.draft_intake = None
         st.rerun()
@@ -560,6 +566,7 @@ with tab_intake:
                     st.session_state.active_run_id = run_id
                     st.session_state.show_preview = False
                     st.session_state.draft_intake = None
+                    st.session_state.switch_to_monitor = True
 
                     st.success(f"✅ Run created: {run_id}")
                     st.rerun()
@@ -638,18 +645,23 @@ with tab_monitor:
             try:
                 manifest = read_json(manifest_path)
                 steps_executed = manifest.get("steps_executed", [])
-                total_steps = 30  # Approximate total steps in pipeline
-                progress = min(len(steps_executed) / total_steps, 1.0)
+                total_steps = len(steps_executed)  # Use actual steps count
+                exports = manifest.get("exports", [])
                 
-                # Stop loading animation when progress is available
-                if progress > 0:
+                # Pipeline is complete if exports exist
+                pipeline_complete = len(exports) > 0
+                
+                if pipeline_complete:
                     st.session_state.pipeline_running = False
+                    progress = 1.0
+                else:
+                    # Show progress based on steps
+                    estimated_total = 26  # Based on your log
+                    progress = min(total_steps / estimated_total, 0.95)  # Max 95% until exports
                 
                 with progress_placeholder.container():
-                    st.progress(progress, text=f"Processing step {len(steps_executed)}/{total_steps}")
-                    st.write(f"**Progress: {progress*100:.1f}% completed**")
-                    
-                    if progress >= 1.0:
+                    if pipeline_complete:
+                        st.progress(1.0, text="Pipeline completed successfully!")
                         st.success("✅ Pipeline completed successfully!")
                         st.balloons()
                         
@@ -657,6 +669,9 @@ with tab_monitor:
                         st.info("🔄 Switching to Results...")
                         st.session_state.auto_switch_to_results = True
                         st.rerun()
+                    else:
+                        st.progress(progress, text=f"Processing step {total_steps}...")
+                        st.write(f"**Progress: {progress*100:.1f}% completed**")
                         
             except Exception as e:
                 st.error(f"Error reading manifest: {e}")
@@ -669,7 +684,11 @@ with tab_monitor:
         # Logs
         log_path = run_root / "logs" / "pipeline.log"
         with st.expander("📄 View Pipeline Logs"):
-            st.text_area("pipeline.log (tail)", tail_log(log_path), height=320)
+            log_content = tail_log(log_path)
+            if log_content == "(no logs yet)":
+                st.info("No logs available yet. Pipeline may still be starting.")
+            else:
+                st.text_area("pipeline.log (tail)", log_content, height=320)
 
 
 # =====================================================
