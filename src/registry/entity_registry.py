@@ -91,15 +91,21 @@ class EntityRegistry:
             existing = self.entities_by_id.get(entity_id, {})
             merged = dict(existing)
 
-            #note: Merge rule: keep existing fields unless new value is more informative.
+            #note: Merge rule: Agent data overwrites intake data except for domain.
             for k, v in ent.items():
                 if v is None:
                     continue
+                    
+                # Never overwrite domain - preserve intake domain
+                if k == "domain" and k in merged and merged[k] not in ("", "n/v", "N/V", None):
+                    continue
+                    
+                # For other fields: agent data overwrites intake data if more complete
                 if k not in merged or merged.get(k) in ("", "n/v", "N/V", None):
                     merged[k] = v
                 else:
-                    #note: Prefer newer value if existing is empty-ish.
-                    if merged.get(k) == "" and v != "":
+                    # Agent data is more complete than intake data - overwrite
+                    if len(str(v).strip()) > len(str(merged.get(k, "")).strip()):
                         merged[k] = v
 
             merged["entity_id"] = entity_id
