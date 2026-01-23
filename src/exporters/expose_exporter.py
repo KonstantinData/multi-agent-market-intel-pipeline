@@ -74,8 +74,8 @@ def build_report_markdown(registry_snapshot: Dict[str, Any]) -> str:
             break
 
     company_name = (target or {}).get("entity_name") or (target or {}).get("legal_name") or "Unknown Company"
-    # Use original domain from registry namespace, not from target entity
-    domain = registry_snapshot.get("namespace", "n/a")
+    # Use domain from target entity (preserved from intake)
+    domain = (target or {}).get("domain") or "n/a"
 
     lines: List[str] = []
     lines.append("# Business Intelligence Report")
