@@ -137,6 +137,9 @@ Find:
 """
         
         try:
+            # First try to fetch actual website content
+            website_content = self._fetch_website_content(domain)
+            
             response_format = {
                 "type": "json_schema",
                 "json_schema": {
@@ -159,16 +162,25 @@ Find:
                 }
             }
             
+            # Include actual website content in the prompt
+            content_prompt = f"""
+Website Content from {domain}:
+{website_content[:2000]}...
+
+Based on this actual website content, extract the German legal identity information.
+{search_context}
+"""
+            
             payload = {
                 "model": "gpt-4o",
                 "messages": [
                     {
                         "role": "system",
-                        "content": "Extract German legal identity information from Impressum data. ALWAYS find the complete legal company name, even if the input already contains a legal form. Use 'n/v' only if information is completely unavailable. Focus on official German legal forms and address formats."
+                        "content": "Extract German legal identity information from the provided website content. ALWAYS find the complete legal company name, even if the input already contains a legal form. Use 'n/v' only if information is completely unavailable. Focus on official German legal forms and address formats."
                     },
                     {
                         "role": "user",
-                        "content": search_context
+                        "content": content_prompt
                     }
                 ],
                 "temperature": 0.1,
@@ -299,6 +311,33 @@ Find:
             "findings": findings,
             "sources": sources
         }
+        
+    def _fetch_website_content(self, domain: str) -> str:
+        """Fetch actual website content from impressum/legal pages."""
+        impressum_urls = [
+            f"https://{domain}/impressum",
+            f"https://{domain}/imprint", 
+            f"https://{domain}/legal-notice",
+            f"https://{domain}/legal",
+            f"https://{domain}/contact",
+            f"https://{domain}/about"
+        ]
+        
+        content = ""
+        for url in impressum_urls:
+            try:
+                with httpx.Client(timeout=10.0, follow_redirects=True) as client:
+                    resp = client.get(url)
+                    if resp.status_code == 200:
+                        content += f"\n\n--- Content from {url} ---\n"
+                        content += resp.text[:1000]  # Limit content per page
+                        if len(content) > 3000:  # Total limit
+                            break
+            except Exception as e:
+                self.logger.debug(f"Failed to fetch {url}: {str(e)}")
+                continue
+                
+        return content if content else "No website content available"
         
     def _create_step_meta(self) -> Dict[str, Any]:
         """Create step metadata."""
