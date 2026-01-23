@@ -144,6 +144,9 @@ Find:
 """
         
         try:
+            # Fetch content only from impressum pages
+            website_content = self._fetch_impressum_content(domain)
+            
             response_format = {
                 "type": "json_schema",
                 "json_schema": {
@@ -168,16 +171,25 @@ Find:
                 }
             }
             
+            # Include actual impressum content in the prompt
+            content_prompt = f"""
+Impressum Content from {domain}:
+{website_content[:2000]}...
+
+Based on this actual impressum content, extract the DACH legal identity information.
+{search_context}
+"""
+            
             payload = {
                 "model": "gpt-4o",
                 "messages": [
                     {
                         "role": "system",
-                        "content": "Extract Austrian or Swiss legal identity information. ALWAYS find the complete legal company name, even if the input already contains a legal form. Use 'n/v' only if information is unavailable. Country codes: AT for Austria, CH for Switzerland. Focus on DACH legal forms and 4-digit postal codes."
+                        "content": "Extract Austrian or Swiss legal identity information from the provided impressum content. ALWAYS find the complete legal company name, even if the input already contains a legal form. Use 'n/v' only if information is unavailable. Country codes: AT for Austria, CH for Switzerland. Focus on DACH legal forms and 4-digit postal codes."
                     },
                     {
                         "role": "user",
-                        "content": search_context
+                        "content": content_prompt
                     }
                 ],
                 "temperature": 0.1,
@@ -304,6 +316,28 @@ Find:
             "findings": findings,
             "sources": sources
         }
+        
+    def _fetch_impressum_content(self, domain: str) -> str:
+        """Fetch content only from impressum pages."""
+        impressum_urls = [
+            f"https://{domain}/impressum",
+            f"https://www.{domain}/impressum"
+        ]
+        
+        content = ""
+        for url in impressum_urls:
+            try:
+                with httpx.Client(timeout=10.0, follow_redirects=True) as client:
+                    resp = client.get(url)
+                    if resp.status_code == 200:
+                        content += f"\n\n--- Content from {url} ---\n"
+                        content += resp.text[:2000]  # Limit content per page
+                        break  # Stop after first successful fetch
+            except Exception as e:
+                self.logger.debug(f"Failed to fetch {url}: {str(e)}")
+                continue
+                
+        return content if content else "No impressum content available"
         
     def _create_step_meta(self) -> Dict[str, Any]:
         """Create step metadata."""
