@@ -105,7 +105,14 @@ def build_report_markdown(registry_snapshot: Dict[str, Any]) -> str:
     lines.append("## Contact Information")
     lines.append("")
     if target:
-        lines.append(f"**Street:** {target.get('street_name', 'n/a')} {target.get('house_number', 'n/a')}")
+        street = target.get('street_name', target.get('street_address', 'n/a'))
+        house_num = target.get('house_number', '')
+        if street != 'n/a' and house_num and house_num != 'n/a':
+            street_display = f"{street} {house_num}"
+        else:
+            street_display = street
+            
+        lines.append(f"**Street:** {street_display}")
         lines.append(f"**Post Code:** {target.get('postal_code', 'n/a')}")
         lines.append(f"**City:** {target.get('city', 'n/a')}")
         lines.append(f"**Country:** {target.get('country', 'n/a')}")
