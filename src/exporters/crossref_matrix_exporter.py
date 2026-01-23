@@ -22,7 +22,7 @@ import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List
 
 from ..registry.crossref_graph import CrossReferenceGraph
 from ..validator.crossref_validator import CrossReferenceValidator
@@ -112,7 +112,7 @@ class CrossReferenceMatrixExporter:
                 }
             }
             
-            logger.info(f"Cross-reference matrix export completed successfully")
+            logger.info("Cross-reference matrix export completed successfully")
             return export_result
             
         except Exception as e:

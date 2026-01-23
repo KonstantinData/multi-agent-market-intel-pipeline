@@ -21,11 +21,9 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional
 
 import jsonschema
-
-from ..registry.crossref_graph import CrossReferenceGraph
 
 logger = logging.getLogger(__name__)
 
