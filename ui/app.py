@@ -370,6 +370,9 @@ if "draft_intake" not in st.session_state:
 if "show_preview" not in st.session_state:
     st.session_state.show_preview = False
 
+if "pipeline_running" not in st.session_state:
+    st.session_state.pipeline_running = False
+
 
 tab_intake, tab_monitor, tab_results = st.tabs(["1) Intake", "2) Run Monitor", "3) Results"])
 
@@ -382,7 +385,23 @@ with tab_intake:
     st.markdown("""
     <style>
     .stTextInput > div > div > input {
+        font-size: 18px !important;
+    }
+    .stSelectbox > div > div > div {
+        font-size: 18px !important;
+    }
+    .stCheckbox > label {
         font-size: 16px !important;
+    }
+    .stButton > button {
+        font-size: 16px !important;
+    }
+    /* Dialog styling */
+    .stDialog {
+        font-size: 16px !important;
+    }
+    .stDialog .stJson {
+        font-size: 14px !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -567,8 +586,37 @@ with tab_monitor:
                     proc = start_pipeline_subprocess(run_id, case_input_path)
                     st.session_state.pipeline_proc_pid = proc.pid
                     st.success(f"✅ Pipeline started. PID={proc.pid}")
+                    st.session_state.pipeline_running = True
                 except FileNotFoundError:
                     st.error("Orchestrator entrypoint not found: src.orchestrator.run_pipeline")
+
+        # Show loading animation when pipeline is running
+        if st.session_state.get('pipeline_running', False):
+            st.markdown("""
+            <style>
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+            .loading-spinner {
+                border: 4px solid #f3f3f3;
+                border-top: 4px solid #ff4b4b;
+                border-radius: 50%;
+                width: 50px;
+                height: 50px;
+                animation: spin 1s linear infinite;
+                margin: 20px auto;
+            }
+            .loading-text {
+                text-align: center;
+                font-size: 18px;
+                color: #ff4b4b;
+                margin-top: 10px;
+            }
+            </style>
+            <div class="loading-spinner"></div>
+            <div class="loading-text">🚀 Pipeline is running...</div>
+            """, unsafe_allow_html=True)
 
         # Progress bar placeholder
         progress_placeholder = st.empty()
@@ -582,12 +630,17 @@ with tab_monitor:
                 total_steps = 30  # Approximate total steps in pipeline
                 progress = min(len(steps_executed) / total_steps, 1.0)
                 
+                # Stop loading animation when progress is available
+                if progress > 0:
+                    st.session_state.pipeline_running = False
+                
                 with progress_placeholder.container():
-                    st.progress(progress)
-                    st.write(f"Progress: {len(steps_executed)}/{total_steps} steps completed ({progress*100:.1f}%)")
+                    st.progress(progress, text=f"Processing step {len(steps_executed)}/{total_steps}")
+                    st.write(f"**Progress: {progress*100:.1f}% completed**")
                     
                     if progress >= 1.0:
-                        st.success("✅ Pipeline completed!")
+                        st.success("✅ Pipeline completed successfully!")
+                        st.balloons()
                         
                         # Download buttons
                         col_dl1, col_dl2 = st.columns(2)
@@ -601,7 +654,8 @@ with tab_monitor:
                                     label="📊 Download Report (MD)",
                                     data=report_path.read_text(encoding="utf-8"),
                                     file_name=f"report_{run_id}.md",
-                                    mime="text/markdown"
+                                    mime="text/markdown",
+                                    type="primary"
                                 )
                         
                         with col_dl2:
@@ -615,6 +669,7 @@ with tab_monitor:
                         
             except Exception as e:
                 st.error(f"Error reading manifest: {e}")
+                st.session_state.pipeline_running = False
         
         # Hidden background info - no longer shown
         # st.markdown("### Run folders")
