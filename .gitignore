@@ -152,7 +152,7 @@ artifacts/runs_archived/*
 *.dtmp
 .$*.dtmp
 .$*.drawio
-
+*.jpg
 
 
 
