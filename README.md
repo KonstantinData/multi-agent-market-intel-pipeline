@@ -25,6 +25,7 @@ The system is designed to run **parallel domain agents (Fan-Out)** while preserv
 - **Auditability:** Every run produces a full artifact trail (inputs, outputs, validation results, merge states, exports).
 - **Contract enforcement:** Every step must satisfy strict output contracts (schemas + rules) or it fails fast.
 - **Deterministic governance:** IDs, deduplication, merge policies, and cross-references are deterministic even if LLM-generated text varies.
+- **Referential integrity:** Cross-reference system ensures all entity relationships are valid and traceable.
 - **Parallel execution:** Domain agents can run in parallel; results are merged at explicit barriers.
 - **Evidence-based output:** No invented facts. If something cannot be verified, output `n/v`.
 - **Recruiter-ready engineering:** Clear separation of concerns, versioned configs, tests, and decision traceability (ADRs).
@@ -42,7 +43,7 @@ The pipeline runs as a **DAG** with explicit parallel batches and merge barriers
 3. **Output contract validation** after each step (Gatekeeper)
 4. **Central entity registry merge** (Fan-In barrier)
 5. **Downstream mapping steps** (peers -> customers-of-peers)
-6. **Final exports** (report, entities, index, cross-reference matrix)
+6. **Final exports** (report, entities, index, cross-reference matrix with relationship analysis)
 
 ### Key subsystems
 
@@ -63,19 +64,21 @@ The pipeline runs as a **DAG** with explicit parallel batches and merge barriers
   - schema validation (JSON Schema)
   - rule validation (required fields, evidence policy, ASCII policy)
   - cross-reference integrity checks (hard fail on broken links)
+  - referential integrity validation (no dangling entity references)
   - PASS/FAIL results control orchestration
 - **Entity Registry (`src/registry/`)**
 
   - centralized deduplication (domain-based entity keys)
   - deterministic ID allocation (TGT/MFR/CUS)
   - merge conflict resolution with provenance tracking
-  - cross-reference graph construction
+  - cross-reference graph construction and relationship management
 - **Exporters (`src/exporters/`)**
 
   - Markdown report builder (`report.md`)
   - entity export (`entities.json`)
   - index export (`index.json`)
-  - cross-reference matrix export
+  - cross-reference matrix export with relationship analysis
+  - adjacency matrices and relationship summaries
 
 ---
 
@@ -128,6 +131,15 @@ Each run produces a deterministic artifact layout for:
 - review
 - audit trails
 - reruns
+
+### 7) Cross-reference integrity is mandatory
+
+All entity relationships must maintain referential integrity:
+
+- No dangling references (references to non-existent entities)
+- All relationship types must be valid and evidence-backed
+- Cross-reference validation occurs at merge barriers
+- Relationship matrices provide comprehensive audit trails
 
 ---
 

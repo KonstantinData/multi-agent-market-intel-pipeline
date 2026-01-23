@@ -1,26 +1,150 @@
-step_id: "AG-XX"
-agent_name: "agXX_name"
-purpose: "..."
-inputs:
-  required_case_fields: ["company_name", "company_domain"]
-  required_registry_views: ["target_entity"]
-outputs:
-  entities_delta:
-    required: true
-    entity_types_allowed: ["target_company", "manufacturer", "customer"]
-    required_fields_per_entity: ["entity_key", "entity_type", "entity_name"]
-  relations_delta:
-    required: false
-    relation_types_allowed: ["peer_of", "customer_of"]
-  findings:
-    required: true
-    min_items: 1
-  sources:
-    required: true
-    min_items: 1
-validation:
-  hard_fail_if:
-    - "missing required output sections"
-    - "sources missing for consequential claims"
-  soft_fail_allowed:
-    - "n/v returned when evidence is not available"
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Cross-Reference Matrix Schema",
+  "description": "Schema for cross-reference matrices that track relationships between entities in the market intelligence pipeline",
+  "type": "object",
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "run_id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "generated_at_utc": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "total_entities": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_relations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "relation_types": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["peer_of", "customer_of", "supplier_of", "partner_of", "competitor_of"]
+          }
+        }
+      },
+      "required": ["run_id", "generated_at_utc", "total_entities", "total_relations"]
+    },
+    "entities": {
+      "type": "object",
+      "description": "Map of entity_id to entity metadata",
+      "patternProperties": {
+        "^(TGT|MFR|CUS)-[0-9]{3}$": {
+          "type": "object",
+          "properties": {
+            "entity_id": {
+              "type": "string",
+              "pattern": "^(TGT|MFR|CUS)-[0-9]{3}$"
+            },
+            "entity_type": {
+              "type": "string",
+              "enum": ["target_company", "manufacturer", "customer"]
+            },
+            "entity_name": {
+              "type": "string",
+              "minLength": 1
+            },
+            "domain": {
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+            }
+          },
+          "required": ["entity_id", "entity_type", "entity_name"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "relations": {
+      "type": "array",
+      "description": "List of all relationships between entities",
+      "items": {
+        "type": "object",
+        "properties": {
+          "from_entity_id": {
+            "type": "string",
+            "pattern": "^(TGT|MFR|CUS)-[0-9]{3}$"
+          },
+          "to_entity_id": {
+            "type": "string",
+            "pattern": "^(TGT|MFR|CUS)-[0-9]{3}$"
+          },
+          "relation_type": {
+            "type": "string",
+            "enum": ["peer_of", "customer_of", "supplier_of", "partner_of", "competitor_of"]
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0.0,
+            "maximum": 1.0
+          },
+          "evidence_count": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "discovered_by_step": {
+            "type": "string",
+            "pattern": "^AG-[0-9]{2}$"
+          }
+        },
+        "required": ["from_entity_id", "to_entity_id", "relation_type", "confidence", "evidence_count", "discovered_by_step"]
+      }
+    },
+    "matrix": {
+      "type": "object",
+      "description": "Adjacency matrix representation for quick lookups",
+      "patternProperties": {
+        "^(TGT|MFR|CUS)-[0-9]{3}$": {
+          "type": "object",
+          "patternProperties": {
+            "^(TGT|MFR|CUS)-[0-9]{3}$": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": ["peer_of", "customer_of", "supplier_of", "partner_of", "competitor_of"]
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "validation_results": {
+      "type": "object",
+      "properties": {
+        "integrity_check_passed": {
+          "type": "boolean"
+        },
+        "dangling_references": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "circular_references": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "validation_timestamp_utc": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["integrity_check_passed", "validation_timestamp_utc"]
+    }
+  },
+  "required": ["metadata", "entities", "relations", "matrix", "validation_results"]
+}

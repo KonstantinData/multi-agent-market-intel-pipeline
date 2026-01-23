@@ -75,17 +75,8 @@ class AG15NetworkMapper(BaseAgent):
             )
 
             if network_data:
-                # Convert entities dict to array format
-                entities_list = []
-                for entity_id, entity_data in network_data["entities"].items():
-                    entity_data["entity_id"] = entity_id
-                    entities_list.append(entity_data)
-                
-                # Convert relations dict to array format  
-                relations_list = list(network_data["relations"].values())
-                
-                output["entities_delta"] = entities_list
-                output["relations_delta"] = relations_list
+                output["entities_delta"] = network_data["entities"]
+                output["relations_delta"] = network_data["relations"]
                 output["findings"] = [network_data["findings"]]
                 output["sources"] = network_data["sources"]
 
@@ -258,34 +249,53 @@ Focus on companies in the same or related industries.
 
     def _process_openai_results(self, research_data: Dict[str, Any], company_name: str) -> Dict[str, Any]:
         """Process OpenAI research results into entities and relations."""
-        entities_delta = {}
+        entities_delta = []
+        relations_delta = []
         accessed_at = datetime.now(timezone.utc).isoformat()
         
         # Process peers
         peers = research_data.get("peers", [])
         for i, peer in enumerate(peers[:10]):  # Limit to 10
-            entity_id = f"PEER-{i+1:03d}"
-            entities_delta[entity_id] = {
-                "entity_key": f"peer-{i+1:03d}",
+            entity_key = f"peer-{peer.get('entity_name', 'unknown').lower().replace(' ', '-')}.com"
+            entities_delta.append({
+                "entity_key": entity_key,
+                "entity_type": "manufacturer",
                 "entity_name": peer.get("entity_name", "Unknown"),
-                "industry": peer.get("industry", "n/v"),
-                "relationship_type": "peer",
-                "rationale": peer.get("rationale", "Identified as industry peer")
-            }
+                "domain": entity_key,
+                "industry": peer.get("industry", "n/v")
+            })
+            
+            # Add peer relationship
+            relations_delta.append({
+                "from_entity_id": "target-company.com",  # Will be resolved by registry
+                "to_entity_id": entity_key,
+                "relation_type": "peer_of",
+                "confidence": 0.7,
+                "evidence_count": 1,
+                "discovered_by_step": "AG-15"
+            })
         
         # Process customers
         customers = research_data.get("customers", [])
         for i, customer in enumerate(customers[:10]):  # Limit to 10
-            entity_id = f"CUSTOMER-{i+1:03d}"
-            entities_delta[entity_id] = {
-                "entity_key": f"customer-{i+1:03d}",
+            entity_key = f"customer-{customer.get('entity_name', 'unknown').lower().replace(' ', '-')}.com"
+            entities_delta.append({
+                "entity_key": entity_key,
+                "entity_type": "customer",
                 "entity_name": customer.get("entity_name", "Unknown"),
-                "industry": customer.get("industry", "n/v"),
-                "relationship_type": "customer",
-                "rationale": customer.get("rationale", "Identified as potential customer")
-            }
-        
-        relations_delta = self._build_relations("", entities_delta)
+                "domain": entity_key,
+                "industry": customer.get("industry", "n/v")
+            })
+            
+            # Add customer relationship
+            relations_delta.append({
+                "from_entity_id": entity_key,
+                "to_entity_id": "target-company.com",  # Will be resolved by registry
+                "relation_type": "customer_of",
+                "confidence": 0.6,
+                "evidence_count": 1,
+                "discovered_by_step": "AG-15"
+            })
         
         sources = [{
             "publisher": "OpenAI Research",
@@ -296,8 +306,8 @@ Focus on companies in the same or related industries.
         
         findings = {
             "network_expansion_summary": f"AI research identified {len(entities_delta)} related companies for {company_name}",
-            "peer_count": len([e for e in entities_delta.values() if e.get("relationship_type") == "peer"]),
-            "customer_count": len([e for e in entities_delta.values() if e.get("relationship_type") == "customer"]),
+            "peer_count": len([e for e in entities_delta if e.get("entity_type") == "manufacturer"]),
+            "customer_count": len([e for e in entities_delta if e.get("entity_type") == "customer"]),
         }
         
         return {
@@ -309,17 +319,22 @@ Focus on companies in the same or related industries.
     
     def _fallback_network_data(self, company_name: str) -> Dict[str, Any]:
         """Fallback when OpenAI is not available."""
-        entities_delta = {
-            "PEER-001": {
-                "entity_key": "peer-fallback-001",
-                "entity_name": "Industry Peer (Fallback)",
-                "industry": "n/v",
-                "relationship_type": "peer",
-                "rationale": "Fallback data - OpenAI unavailable"
-            }
-        }
+        entities_delta = [{
+            "entity_key": "peer-fallback.com",
+            "entity_type": "manufacturer",
+            "entity_name": "Industry Peer (Fallback)",
+            "domain": "peer-fallback.com",
+            "industry": "n/v"
+        }]
         
-        relations_delta = self._build_relations("", entities_delta)
+        relations_delta = [{
+            "from_entity_id": "target-company.com",
+            "to_entity_id": "peer-fallback.com",
+            "relation_type": "peer_of",
+            "confidence": 0.3,
+            "evidence_count": 1,
+            "discovered_by_step": "AG-15"
+        }]
         
         sources = [{
             "publisher": "Fallback Data",
@@ -341,30 +356,7 @@ Focus on companies in the same or related industries.
             "sources": sources
         }
 
-    def _build_relations(self, source_entity_key: str, discovered_entities: Dict[str, Any]) -> Dict[str, Any]:
-        """Build relations delta from discovered entities."""
-        relations: Dict[str, Any] = {}
 
-        for entity_id, entity_data in discovered_entities.items():
-            relation_id = f"REL-{entity_id}"
-            relationship_type = entity_data.get("relationship_type", "unknown")
-
-            if relationship_type == "peer":
-                relation_type = "Same Business Sector"
-            elif relationship_type == "customer":
-                relation_type = "Supplier to"
-            else:
-                relation_type = "Business Network"
-
-            relations[relation_id] = {
-                "relationship_id": relation_id,
-                "source_id": source_entity_key,
-                "target_id": entity_data.get("entity_key", ""),
-                "type": relation_type,
-                "rationale": entity_data.get("rationale", "n/v"),
-            }
-
-        return relations
 
     def _create_step_meta(self) -> Dict[str, Any]:
         now = datetime.now(timezone.utc)
