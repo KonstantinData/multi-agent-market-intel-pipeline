@@ -113,6 +113,13 @@ class IntakeCase:
     country: Optional[str] = None
     parent_company: Optional[str] = None
     child_company: Optional[str] = None
+    
+    # Regional Legal Identity Settings
+    region_germany: bool = True
+    region_dach: bool = False
+    region_europe: bool = False
+    region_uk: bool = False
+    region_usa: bool = False
 
 
 # -------------------------
@@ -398,6 +405,24 @@ with tab_intake:
         child_company = st.text_input("Child company", placeholder="n/v", key="intake_child")
         industry = st.text_input("Industry", placeholder="Manufacturing", key="intake_industry")
 
+    st.subheader("Legal Identity Research Regions")
+    st.write("Select which regions to search for legal identity information:")
+    
+    col_reg1, col_reg2, col_reg3 = st.columns(3)
+    with col_reg1:
+        germany_enabled = st.checkbox("🇩🇪 Germany (AG-10.0)", value=True, key="region_germany", 
+                                    help="German Impressum extraction with legal forms (GmbH, AG, SE, etc.)")
+        dach_enabled = st.checkbox("🇦🇹🇨🇭 DACH Extension (AG-10.1)", value=False, key="region_dach",
+                                 help="Austria & Switzerland legal forms and 4-digit postal codes")
+    with col_reg2:
+        europe_enabled = st.checkbox("🇪🇺 Europe (AG-10.2)", value=False, key="region_europe",
+                                   help="European Union countries (SAS, SpA, BV, etc.)")
+        uk_enabled = st.checkbox("🇬🇧 UK (AG-10.3)", value=False, key="region_uk",
+                               help="United Kingdom legal forms (Ltd, PLC, LLP) and postcodes")
+    with col_reg3:
+        usa_enabled = st.checkbox("🇺🇸 USA (AG-10.4)", value=False, key="region_usa",
+                                help="United States legal forms (Inc, Corp, LLC) and ZIP codes")
+
     # Live normalization preview (no artifacts written yet)
     company_name_canonical = normalize_whitespace(company_name_raw)
     domain_normalized = normalize_domain(web_domain_raw)
@@ -462,6 +487,11 @@ with tab_intake:
             country=normalize_whitespace(country) or None,
             parent_company=normalize_whitespace(parent_company) or None,
             child_company=normalize_whitespace(child_company) or None,
+            region_germany=germany_enabled,
+            region_dach=dach_enabled,
+            region_europe=europe_enabled,
+            region_uk=uk_enabled,
+            region_usa=usa_enabled,
         )
 
         st.session_state.draft_intake = draft
@@ -604,6 +634,17 @@ with tab_monitor:
             e_country = st.text_input("Country", value=str(current_payload.get("country") or ""))
             e_parent = st.text_input("Parent company", value=str(current_payload.get("parent_company") or ""))
             e_child = st.text_input("Child company", value=str(current_payload.get("child_company") or ""))
+            
+            st.write("**Regional Legal Identity Settings:**")
+            col_e1, col_e2, col_e3 = st.columns(3)
+            with col_e1:
+                e_germany = st.checkbox("🇩🇪 Germany", value=current_payload.get("region_germany", True))
+                e_dach = st.checkbox("🇦🇹🇨🇭 DACH", value=current_payload.get("region_dach", False))
+            with col_e2:
+                e_europe = st.checkbox("🇪🇺 Europe", value=current_payload.get("region_europe", False))
+                e_uk = st.checkbox("🇬🇧 UK", value=current_payload.get("region_uk", False))
+            with col_e3:
+                e_usa = st.checkbox("🇺🇸 USA", value=current_payload.get("region_usa", False))
 
             save_correction = st.form_submit_button("Save correction (case_corrected.json)")
 
@@ -629,6 +670,11 @@ with tab_monitor:
                 "country": normalize_whitespace(e_country) or None,
                 "parent_company": normalize_whitespace(e_parent) or None,
                 "child_company": normalize_whitespace(e_child) or None,
+                "region_germany": e_germany,
+                "region_dach": e_dach,
+                "region_europe": e_europe,
+                "region_uk": e_uk,
+                "region_usa": e_usa,
                 "corrected_at_utc": utc_now_iso(),
             }
 
