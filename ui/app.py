@@ -469,7 +469,7 @@ with tab_intake:
     if reset_btn:
         st.session_state.show_preview = False
         st.session_state.draft_intake = None
-        st.experimental_rerun()
+        st.rerun()
 
     # Confirmation step: Preview screen
     if preview_btn:
@@ -495,65 +495,85 @@ with tab_intake:
         st.session_state.show_preview = True
 
     if st.session_state.show_preview and st.session_state.draft_intake is not None:
-        # Show confirmation in modal-like container
-        with st.container():
-            st.markdown("""
-            <div style="
-                border: 2px solid #ff6b6b;
-                border-radius: 10px;
-                padding: 20px;
-                margin: 20px 0;
-                background-color: #f8f9fa;
-                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            ">
-            """, unsafe_allow_html=True)
-            
-            st.subheader("🔍 Confirmation Step (Artifacts)")
-            
-            draft: IntakeCase = st.session_state.draft_intake
-            preview_payload = asdict(draft)
-            
-            # Replace None values with "keine Angaben"
-            for key, value in preview_payload.items():
-                if value is None:
-                    preview_payload[key] = "keine Angaben"
-                    
-            preview_payload["entity_key_preview"] = build_entity_key_from_domain(draft.web_domain)
-            preview_payload["created_at_utc_preview"] = utc_now_iso()
-
-            st.json(preview_payload)
-
-            colX, colY = st.columns([1, 1])
-            with colX:
-                confirm_btn = st.button("✅ Confirm & Create Run", type="primary")
-            with colY:
-                edit_btn = st.button("✏️ Edit")
+        # Create modal overlay effect
+        st.markdown("""
+        <style>
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        </style>
+        
+        <div class="modal-overlay">
+            <div class="modal-content">
+        """, unsafe_allow_html=True)
+        
+        st.subheader("🔍 Confirmation Step (Artifacts)")
+        
+        draft: IntakeCase = st.session_state.draft_intake
+        preview_payload = asdict(draft)
+        
+        # Replace None values with "keine Angaben" and boolean values
+        for key, value in preview_payload.items():
+            if value is None:
+                preview_payload[key] = "keine Angaben"
+            elif isinstance(value, bool):
+                preview_payload[key] = "ausgewählt" if value else "nicht ausgewählt"
                 
-            st.markdown("</div>", unsafe_allow_html=True)
+        preview_payload["entity_key_preview"] = build_entity_key_from_domain(draft.web_domain)
+        preview_payload["created_at_utc_preview"] = utc_now_iso()
 
-            if edit_btn:
-                st.session_state.show_preview = False
-                st.success("Edit the fields above and press START RESEARCH again.")
-                st.experimental_rerun()
+        st.json(preview_payload)
 
-            if confirm_btn:
-                run_id = build_run_id(draft.web_domain)
-                run_dirs = ensure_run_dirs(run_id)
+        colX, colY = st.columns([1, 1])
+        with colX:
+            confirm_btn = st.button("✅ Confirm & Create Run", type="primary")
+        with colY:
+            edit_btn = st.button("✏️ Edit")
+            
+        st.markdown("</div></div>", unsafe_allow_html=True)
 
-                # Write raw input as case_input.json
-                case_input_path = run_dirs["meta"] / "case_input.json"
-                raw_payload = asdict(draft)
-                raw_payload["created_at_utc"] = utc_now_iso()
-                write_json(case_input_path, raw_payload)
+        if edit_btn:
+            st.session_state.show_preview = False
+            st.success("Edit the fields above and press START RESEARCH again.")
+            st.rerun()
 
-                st.session_state.active_run_id = run_id
-                st.session_state.show_preview = False
-                st.session_state.draft_intake = None
+        if confirm_btn:
+            run_id = build_run_id(draft.web_domain)
+            run_dirs = ensure_run_dirs(run_id)
 
-                # Auto-switch to Run Monitor tab
-                st.success(f"✅ Run created: {run_id}")
-                st.info("🔄 Switching to Run Monitor...")
-                st.experimental_rerun()
+            # Write raw input as case_input.json
+            case_input_path = run_dirs["meta"] / "case_input.json"
+            raw_payload = asdict(draft)
+            raw_payload["created_at_utc"] = utc_now_iso()
+            write_json(case_input_path, raw_payload)
+
+            st.session_state.active_run_id = run_id
+            st.session_state.show_preview = False
+            st.session_state.draft_intake = None
+
+            st.success(f"✅ Run created: {run_id}")
+            st.info("🔄 Switching to Run Monitor...")
+            # Use st.rerun() instead of deprecated st.experimental_rerun()
+            st.rerun()
 
 
 # =====================================================
