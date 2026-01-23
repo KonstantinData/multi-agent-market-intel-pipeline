@@ -37,10 +37,11 @@ class AG10_0_IdentityLegalGermany(BaseAgent):
         self.agent_id = "AG-10.0"
         self.agent_name = "ag10_0_identity_legal_germany"
         
-        # German legal forms for extraction
+        # German legal forms for extraction (including compound forms)
         self.german_legal_forms = [
+            "SE & Co. KGaA", "GmbH & Co. KG", "AG & Co. KGaA", "SE & Co. KG",
             "GmbH", "UG (haftungsbeschränkt)", "UG", "AG", "SE", "KGaA", 
-            "GmbH & Co. KG", "KG", "OHG", "e.K.", "GbR", "e.V.", "Stiftung"
+            "KG", "OHG", "e.K.", "GbR", "e.V.", "Stiftung"
         ]
         
     def run(
