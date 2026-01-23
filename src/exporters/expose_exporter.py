@@ -73,7 +73,7 @@ def build_report_markdown(registry_snapshot: Dict[str, Any]) -> str:
             target = e
             break
 
-    company_name = (target or {}).get("entity_name") or (target or {}).get("legal_name") or "Unknown Company"
+    company_name = (target or {}).get("legal_name") or (target or {}).get("entity_name") or "Unknown Company"
     # Use domain from target entity (preserved from intake)
     domain = (target or {}).get("domain") or "n/a"
 

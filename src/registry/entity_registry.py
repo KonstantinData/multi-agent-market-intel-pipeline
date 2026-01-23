@@ -111,8 +111,12 @@ class EntityRegistry:
             merged["entity_id"] = entity_id
             if ent_type:
                 merged.setdefault("entity_type", ent_type)
+            # Update both entity_name and legal_name if one is provided
             if ent_name:
-                merged.setdefault("entity_name", ent_name)
+                if "legal_name" in ent and ent["legal_name"] not in ("", "n/v", "N/V", None):
+                    merged["entity_name"] = ent["legal_name"]
+                else:
+                    merged.setdefault("entity_name", ent_name)
 
             self.entities_by_id[entity_id] = merged
 
