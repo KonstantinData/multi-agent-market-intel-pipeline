@@ -374,6 +374,17 @@ if "pipeline_running" not in st.session_state:
     st.session_state.pipeline_running = False
 
 
+if "auto_switch_to_results" not in st.session_state:
+    st.session_state.auto_switch_to_results = False
+
+
+# Auto-switch to Results tab if pipeline completed
+if st.session_state.get('auto_switch_to_results', False):
+    st.session_state.auto_switch_to_results = False
+    # Force switch to Results tab
+    st.switch_page("Results")
+
+
 tab_intake, tab_monitor, tab_results = st.tabs(["1) Intake", "2) Run Monitor", "3) Results"])
 
 
@@ -642,30 +653,10 @@ with tab_monitor:
                         st.success("✅ Pipeline completed successfully!")
                         st.balloons()
                         
-                        # Download buttons
-                        col_dl1, col_dl2 = st.columns(2)
-                        
-                        report_path = run_root / "exports" / "report.md"
-                        entities_path = run_root / "exports" / "entities.json"
-                        
-                        with col_dl1:
-                            if report_path.exists():
-                                st.download_button(
-                                    label="📊 Download Report (MD)",
-                                    data=report_path.read_text(encoding="utf-8"),
-                                    file_name=f"report_{run_id}.md",
-                                    mime="text/markdown",
-                                    type="primary"
-                                )
-                        
-                        with col_dl2:
-                            if entities_path.exists():
-                                st.download_button(
-                                    label="📊 Download Entities (JSON)",
-                                    data=entities_path.read_text(encoding="utf-8"),
-                                    file_name=f"entities_{run_id}.json",
-                                    mime="application/json"
-                                )
+                        # Auto-switch to Results tab
+                        st.info("🔄 Switching to Results...")
+                        st.session_state.auto_switch_to_results = True
+                        st.rerun()
                         
             except Exception as e:
                 st.error(f"Error reading manifest: {e}")
@@ -685,7 +676,7 @@ with tab_monitor:
 # 3) Results
 # =====================================================
 with tab_results:
-    st.subheader("Results")
+    st.subheader("📊 Results")
     run_id = st.session_state.active_run_id
 
     if not run_id:
@@ -696,21 +687,59 @@ with tab_results:
         report_path = exports_dir / "report.md"
         entities_path = exports_dir / "entities.json"
 
-        col1, col2 = st.columns(2)
+        # Check if results are available
+        if not report_path.exists() and not entities_path.exists():
+            st.info("🔄 Pipeline still running. Results will appear here when completed.")
+        else:
+            st.success("✅ Results are ready!")
+            
+            # Download buttons at the top
+            col_dl1, col_dl2 = st.columns(2)
+            
+            with col_dl1:
+                if report_path.exists():
+                    st.download_button(
+                        label="📊 Download Report (MD)",
+                        data=report_path.read_text(encoding="utf-8"),
+                        file_name=f"report_{run_id}.md",
+                        mime="text/markdown",
+                        type="primary",
+                        use_container_width=True
+                    )
+            
+            with col_dl2:
+                if entities_path.exists():
+                    st.download_button(
+                        label="📊 Download Entities (JSON)",
+                        data=entities_path.read_text(encoding="utf-8"),
+                        file_name=f"entities_{run_id}.json",
+                        mime="application/json",
+                        use_container_width=True
+                    )
+            
+            st.divider()
+            
+            # Display results in two columns
+            col1, col2 = st.columns([1, 1])
 
-        with col1:
-            st.write("Report (report.md)")
-            if report_path.exists():
-                st.markdown(report_path.read_text(encoding="utf-8"))
-            else:
-                st.info("report.md not created yet.")
+            with col1:
+                st.subheader("📄 Business Intelligence Report")
+                if report_path.exists():
+                    try:
+                        report_content = report_path.read_text(encoding="utf-8")
+                        st.markdown(report_content)
+                    except Exception as e:
+                        st.error(f"Error reading report: {e}")
+                else:
+                    st.info("Report not available yet.")
 
-        with col2:
-            st.write("Entities (entities.json)")
-            if entities_path.exists():
-                try:
-                    st.json(read_json(entities_path))
-                except Exception:
-                    st.error("entities.json exists but is not valid JSON.")
-            else:
-                st.info("entities.json not created yet.")
+            with col2:
+                st.subheader("📊 Entity Data (JSON)")
+                if entities_path.exists():
+                    try:
+                        entities_data = read_json(entities_path)
+                        st.json(entities_data)
+                    except Exception as e:
+                        st.error(f"Error reading entities: {e}")
+                else:
+                    st.info("Entity data not available yet.")
