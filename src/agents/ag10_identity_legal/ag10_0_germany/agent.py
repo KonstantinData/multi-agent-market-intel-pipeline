@@ -93,7 +93,6 @@ class AG10_0_IdentityLegalGermany(BaseAgent):
                 output["sources"] = legal_data["sources"]
 
         except Exception as e:
-            self.logger.error(f"Error in AG-10.0 execution: {str(e)}")
             output["findings"] = [{
                 "error": f"German legal identity extraction failed: {str(e)}",
                 "legal_name": "n/v",
@@ -216,7 +215,7 @@ DO NOT generate or infer any information.
                     pass
 
         except Exception as e:
-            self.logger.error(f"OpenAI German legal extraction failed: {str(e)}")
+            pass
 
         return self._fallback_german_data(company_name)
 
@@ -355,18 +354,15 @@ DO NOT generate or infer any information.
                     with httpx.Client(timeout=10.0, follow_redirects=True) as client:
                         resp = client.get(url)
                         if resp.status_code == 200:
-                            self.logger.info(f"Successfully fetched: {url}")
                             content += f"\n\n--- Content from {url} ---\n"
-                            content += resp.text[:4000]  # Increased per page
+                            content += resp.text[:4000]
                             successful_url = url
-                            if len(content) > 8000:  # Increased total limit
+                            if len(content) > 8000:
                                 return content
                 except Exception as e:
-                    self.logger.debug(f"Failed to fetch {url}: {str(e)}")
                     continue
 
         if not content:
-            self.logger.warning(f"No Impressum content found for domain: {domain}")
             return "No website content available"
         
         return content
