@@ -37,13 +37,13 @@ class AG10_1_IdentityLegalDACH(BaseAgent):
         self.agent_id = "AG-10.1"
         self.agent_name = "ag10_1_identity_legal_dach"
         
-        # Austrian legal forms
+        # Austrian legal forms (including compound forms)
         self.austrian_legal_forms = [
-            "GmbH", "AG", "e.U.", "OG", "KG", "GmbH & Co KG", 
+            "GmbH & Co KG", "AG & Co KG", "GmbH", "AG", "e.U.", "OG", "KG",
             "Genossenschaft", "Verein", "Stiftung"
         ]
         
-        # Swiss legal forms
+        # Swiss legal forms (including compound forms)
         self.swiss_legal_forms = [
             "AG", "GmbH", "Einzelfirma", "Kollektivgesellschaft", 
             "Kommanditgesellschaft", "Genossenschaft", "Verein", "Stiftung"
@@ -171,13 +171,23 @@ Find:
                 }
             }
             
-            # Include actual impressum content in the prompt
+            # Include actual website content in the prompt
             content_prompt = f"""
-Impressum Content from {domain}:
-{website_content[:2000]}...
+Website Content from {domain}:
+{website_content[:4000]}
 
-Based on this actual impressum content, extract the DACH legal identity information.
-{search_context}
+Extract the following from the Impressum section above:
+1. Complete legal company name (e.g., "Company AG", "Company GmbH & Co KG")
+2. Legal form (Austria: GmbH, AG, e.U., OG, KG / Switzerland: AG, GmbH, etc.)
+3. Street name (e.g., "Hauptstraße")
+4. House number (e.g., "16" or "16/Top 5" for Austria)
+5. 4-digit postal code (e.g., "1010" for Vienna, "8001" for Zurich)
+6. City (e.g., "Wien", "Zürich")
+7. State/Canton (e.g., "Wien", "Zürich")
+8. Country (Austria/Österreich or Switzerland/Schweiz)
+9. Country code (AT or CH)
+
+If a field is not found, use 'n/v'.
 """
             
             payload = {
@@ -185,14 +195,16 @@ Based on this actual impressum content, extract the DACH legal identity informat
                 "messages": [
                     {
                         "role": "system",
-                        "content": "Extract Austrian or Swiss legal identity information from the provided impressum content. ALWAYS find the complete legal company name, even if the input already contains a legal form. Use 'n/v' only if information is unavailable. Country codes: AT for Austria, CH for Switzerland. Focus on DACH legal forms and 4-digit postal codes."
+                        "content": "You are a data extraction system for Austrian and Swiss Impressum pages. "
+                        "Extract company information that is explicitly stated in the provided content. "
+                        "If a field is clearly not present, use 'n/v'."
                     },
                     {
                         "role": "user",
                         "content": content_prompt
                     }
                 ],
-                "temperature": 0.1,
+                "temperature": 0.0,
                 "max_tokens": 800,
                 "response_format": response_format
             }
@@ -207,7 +219,7 @@ Based on this actual impressum content, extract the DACH legal identity informat
             if content:
                 try:
                     legal_data = json.loads(content)
-                    return self._process_dach_results(legal_data, company_name)
+                    return self._process_dach_results(legal_data, company_name, domain)
                 except json.JSONDecodeError:
                     pass
                     
@@ -216,7 +228,7 @@ Based on this actual impressum content, extract the DACH legal identity informat
             
         return self._fallback_dach_data(company_name)
         
-    def _process_dach_results(self, legal_data: Dict[str, Any], company_name: str) -> Dict[str, Any]:
+    def _process_dach_results(self, legal_data: Dict[str, Any], company_name: str, domain: str = "") -> Dict[str, Any]:
         """Process and validate DACH legal extraction results."""
         accessed_at = datetime.now(timezone.utc).isoformat()
         
@@ -255,9 +267,9 @@ Based on this actual impressum content, extract the DACH legal identity informat
         }
         
         sources = [{
-            "publisher": f"{company_name} Impressum",
-            "url": f"https://{company_name.lower().replace(' ', '')}.com/impressum",
-            "title": f"DACH legal identity research for {company_name}",
+            "publisher": f"{legal_name} Impressum",
+            "url": f"https://www.{domain}/impressum",
+            "title": f"DACH legal identity research for {legal_name}",
             "accessed_at_utc": accessed_at
         }]
         
@@ -318,26 +330,57 @@ Based on this actual impressum content, extract the DACH legal identity informat
         }
         
     def _fetch_impressum_content(self, domain: str) -> str:
-        """Fetch content only from impressum pages."""
-        impressum_urls = [
-            f"https://{domain}/impressum",
-            f"https://www.{domain}/impressum"
+        """Fetch actual website content from impressum/legal pages."""
+        # Try www first, then without
+        domain_variants = []
+        if not domain.startswith('www.'):
+            domain_variants.append(f'www.{domain}')
+        domain_variants.append(domain)
+
+        # DACH Impressum-specific URL patterns
+        url_patterns = [
+            '/impressum',
+            '/de/impressum',
+            '/unternehmen/impressum',
+            '/footer/impressum',
+            '/imprint',
+            '/de/imprint',
+            '/legal-notice',
+            '/rechtliches/impressum',
+            '/info/impressum'
         ]
-        
+
         content = ""
-        for url in impressum_urls:
-            try:
-                with httpx.Client(timeout=10.0, follow_redirects=True) as client:
-                    resp = client.get(url)
-                    if resp.status_code == 200:
-                        content += f"\n\n--- Content from {url} ---\n"
-                        content += resp.text[:2000]  # Limit content per page
-                        break  # Stop after first successful fetch
-            except Exception as e:
-                self.logger.debug(f"Failed to fetch {url}: {str(e)}")
-                continue
-                
-        return content if content else "No impressum content available"
+        
+        for domain_var in domain_variants:
+            for pattern in url_patterns:
+                url = f"https://{domain_var}{pattern}"
+                try:
+                    with httpx.Client(timeout=10.0, follow_redirects=True) as client:
+                        resp = client.get(url)
+                        if resp.status_code == 200:
+                            # Extract text from HTML
+                            html_content = resp.text
+                            
+                            # Simple HTML tag removal
+                            import html
+                            text = re.sub(r'<script[^>]*>.*?</script>', '', html_content, flags=re.DOTALL)
+                            text = re.sub(r'<style[^>]*>.*?</style>', '', text, flags=re.DOTALL)
+                            text = re.sub(r'<[^>]+>', ' ', text)
+                            text = html.unescape(text)  # Decode HTML entities like &amp;
+                            text = re.sub(r'\s+', ' ', text)
+                            
+                            content += f"\n\n--- Content from {url} ---\n"
+                            content += text[:6000]
+                            if len(content) > 10000:
+                                return content
+                except Exception as e:
+                    continue
+
+        if not content:
+            return "No website content available"
+        
+        return content
         
     def _create_step_meta(self) -> Dict[str, Any]:
         """Create step metadata."""
