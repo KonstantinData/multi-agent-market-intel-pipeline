@@ -167,17 +167,16 @@ Find:
 Website Content from {domain}:
 {website_content[:4000]}
 
-EXTRACT ONLY from the above content:
-1. Complete legal company name (must appear in content)
-2. Legal form (GmbH, AG, SE & Co. KGaA, etc. - must appear in content)
-3. Street name (must appear in content)
-4. House number (must appear in content)
-5. PLZ - 5-digit postal code (must appear in content)
-6. City (must appear in content)
-7. State/Bundesland (must appear in content)
+Extract the following from the Impressum section above:
+1. Complete legal company name (e.g., "IMS Gear SE & Co. KGaA")
+2. Legal form (e.g., "SE & Co. KGaA", "GmbH", "AG")
+3. Street name (e.g., "Heinrich-Hertz-Str.")
+4. House number (e.g., "16")
+5. PLZ - 5-digit postal code (e.g., "78166")
+6. City (e.g., "Donaueschingen")
+7. State/Bundesland (e.g., "Baden-Württemberg")
 
-IMPORTANT: If ANY field is not found in the content above, return 'n/v' for that field.
-DO NOT generate or infer any information.
+If a field is not found, use 'n/v'.
 """
 
             payload = {
@@ -185,10 +184,9 @@ DO NOT generate or infer any information.
                 "messages": [
                     {
                         "role": "system",
-                        "content": "You are a strict data extraction system. Extract ONLY information that is explicitly present in the provided website content. "
-                        "DO NOT infer, guess, or generate any information. "
-                        "If a field is not found in the content, return 'n/v'. "
-                        "CRITICAL: Every extracted value must be copy-pasted from the source content."
+                        "content": "You are a data extraction system for German Impressum pages. "
+                        "Extract company information that is explicitly stated in the provided content. "
+                        "If a field is clearly not present, use 'n/v'."
                     },
                     {
                         "role": "user",
