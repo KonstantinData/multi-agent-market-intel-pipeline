@@ -139,10 +139,6 @@ Find:
         try:
             # First try to fetch actual website content
             website_content = self._fetch_website_content(domain)
-            
-            # Debug: Check if we got content
-            if website_content == "No website content available":
-                return self._fallback_german_data(company_name)
 
             response_format = {
                 "type": "json_schema",
