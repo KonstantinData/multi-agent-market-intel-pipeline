@@ -315,29 +315,40 @@ Based on this actual website content, extract the German legal identity informat
         
     def _fetch_website_content(self, domain: str) -> str:
         """Fetch actual website content from impressum/legal pages."""
-        impressum_urls = [
-            f"https://{domain}/impressum",
-            f"https://{domain}/imprint", 
-            f"https://{domain}/legal-notice",
-            f"https://{domain}/legal",
-            f"https://{domain}/contact",
-            f"https://{domain}/about"
+        # Try both with and without www
+        domain_variants = [domain]
+        if not domain.startswith('www.'):
+            domain_variants.append(f'www.{domain}')
+        
+        # German Impressum-specific URL patterns (legally required pages)
+        url_patterns = [
+            '/impressum',
+            '/de/impressum',
+            '/unternehmen/impressum',
+            '/footer/impressum',
+            '/imprint',
+            '/de/imprint',
+            '/legal-notice',
+            '/rechtliches/impressum',
+            '/info/impressum'
         ]
         
         content = ""
-        for url in impressum_urls:
-            try:
-                with httpx.Client(timeout=10.0, follow_redirects=True) as client:
-                    resp = client.get(url)
-                    if resp.status_code == 200:
-                        content += f"\n\n--- Content from {url} ---\n"
-                        content += resp.text[:1000]  # Limit content per page
-                        if len(content) > 3000:  # Total limit
-                            break
-            except Exception as e:
-                self.logger.debug(f"Failed to fetch {url}: {str(e)}")
-                continue
-                
+        for domain_var in domain_variants:
+            for pattern in url_patterns:
+                url = f"https://{domain_var}{pattern}"
+                try:
+                    with httpx.Client(timeout=10.0, follow_redirects=True) as client:
+                        resp = client.get(url)
+                        if resp.status_code == 200:
+                            content += f"\n\n--- Content from {url} ---\n"
+                            content += resp.text[:2000]  # Increased per page
+                            if len(content) > 5000:  # Increased total limit
+                                return content
+                except Exception as e:
+                    self.logger.debug(f"Failed to fetch {url}: {str(e)}")
+                    continue
+                    
         return content if content else "No website content available"
         
     def _create_step_meta(self) -> Dict[str, Any]:
