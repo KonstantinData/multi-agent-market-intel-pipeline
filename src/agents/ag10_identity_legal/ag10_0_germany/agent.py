@@ -345,7 +345,6 @@ DO NOT generate or infer any information.
         ]
 
         content = ""
-        successful_url = None
         
         for domain_var in domain_variants:
             for pattern in url_patterns:
@@ -354,10 +353,19 @@ DO NOT generate or infer any information.
                     with httpx.Client(timeout=10.0, follow_redirects=True) as client:
                         resp = client.get(url)
                         if resp.status_code == 200:
+                            # Extract text from HTML
+                            html_content = resp.text
+                            
+                            # Simple HTML tag removal
+                            import re
+                            text = re.sub(r'<script[^>]*>.*?</script>', '', html_content, flags=re.DOTALL)
+                            text = re.sub(r'<style[^>]*>.*?</style>', '', text, flags=re.DOTALL)
+                            text = re.sub(r'<[^>]+>', ' ', text)
+                            text = re.sub(r'\s+', ' ', text)
+                            
                             content += f"\n\n--- Content from {url} ---\n"
-                            content += resp.text[:4000]
-                            successful_url = url
-                            if len(content) > 8000:
+                            content += text[:6000]
+                            if len(content) > 10000:
                                 return content
                 except Exception as e:
                     continue
