@@ -25,7 +25,7 @@ class StepEntrypoint:
 STEP_ENTRYPOINTS: Dict[str, StepEntrypoint] = {
     "AG-00": StepEntrypoint("src.agents.ag00_intake_normalization.agent", "Agent"),
     "AG-01": StepEntrypoint("src.agents.ag01_source_registry.agent", "Agent"),
-    "AG-10": StepEntrypoint("src.agents.ag10_identity_legal.agent", "Agent"),
+    # AG-10 deprecated - functionality split into regional sub-agents AG-10.0 through AG-10.4
     
     # Regional Legal Identity Agents
     "AG-10.0": StepEntrypoint("src.agents.ag10_identity_legal.ag10_0_germany.agent", "Agent"),
