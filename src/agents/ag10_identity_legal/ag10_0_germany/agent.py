@@ -358,9 +358,11 @@ DO NOT generate or infer any information.
                             
                             # Simple HTML tag removal
                             import re
+                            import html
                             text = re.sub(r'<script[^>]*>.*?</script>', '', html_content, flags=re.DOTALL)
                             text = re.sub(r'<style[^>]*>.*?</style>', '', text, flags=re.DOTALL)
                             text = re.sub(r'<[^>]+>', ' ', text)
+                            text = html.unescape(text)  # Decode HTML entities like &amp;
                             text = re.sub(r'\s+', ' ', text)
                             
                             content += f"\n\n--- Content from {url} ---\n"
