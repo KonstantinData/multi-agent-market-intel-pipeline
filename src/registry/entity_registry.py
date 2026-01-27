@@ -70,16 +70,19 @@ class EntityRegistry:
             explicit_id = str(ent.get("entity_id") or "").strip()
             ent_type = str(ent.get("entity_type") or ent.get("type") or "").strip()
             ent_name = str(ent.get("entity_name") or ent.get("name") or "").strip()
+            entity_key = str(ent.get("entity_key") or "").strip()
 
-            #note: Build dedup key from configured fields if entity_id is missing.
-            dedup_parts: List[str] = []
-            for f in key_fields:
-                val = ent.get(f)
-                dedup_parts.append(str(val).strip())
-            if not dedup_parts:
-                dedup_parts = [ent_type, ent_name]
-
-            dedup_key = _canonical(dedup_parts)
+            #note: Use entity_key if provided, otherwise build dedup key from configured fields
+            if entity_key:
+                dedup_key = entity_key
+            else:
+                dedup_parts: List[str] = []
+                for f in key_fields:
+                    val = ent.get(f)
+                    dedup_parts.append(str(val).strip())
+                if not dedup_parts:
+                    dedup_parts = [ent_type, ent_name]
+                dedup_key = _canonical(dedup_parts)
 
             entity_id = explicit_id
             if not entity_id:

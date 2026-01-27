@@ -147,9 +147,15 @@ def run_pipeline(
 
 #note: Extract the canonical target company stub from AG-00 outputs.
 def _extract_target_stub(output: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    # AG-00 provides target_entity_stub directly
+    stub = output.get("target_entity_stub")
+    if stub:
+        return stub
+    
+    # Fallback: search in entities_delta
     entities = output.get("entities_delta") or []
     for ent in entities:
-        if isinstance(ent, dict) and str(ent.get("entity_id")) == "TGT-001":
+        if isinstance(ent, dict) and str(ent.get("entity_type")) == "target_company":
             return ent
     return None
 

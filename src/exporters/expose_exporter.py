@@ -44,8 +44,15 @@ def build_entities_export(registry_snapshot: Dict[str, Any]) -> Dict[str, Any]:
     entities = registry_snapshot.get("entities") or []
     relations = registry_snapshot.get("relations") or []
 
-    #note: Ensure deterministic sorting by entity_id if present.
-    entities = sorted([e for e in entities if isinstance(e, dict)], key=lambda x: str(x.get("entity_id") or ""))
+    #note: Sort entities with target_company first, then alphabetically by entity_id.
+    def _sort_key(e: Dict[str, Any]) -> tuple:
+        entity_type = str(e.get("entity_type", ""))
+        entity_id = str(e.get("entity_id", ""))
+        # Target company comes first (0), all others after (1)
+        priority = 0 if entity_type == "target_company" else 1
+        return (priority, entity_id)
+    
+    entities = sorted([e for e in entities if isinstance(e, dict)], key=_sort_key)
     relations = sorted([r for r in relations if isinstance(r, dict)], key=lambda x: str(x))
 
     return {
