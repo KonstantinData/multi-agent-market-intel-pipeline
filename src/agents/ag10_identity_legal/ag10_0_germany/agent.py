@@ -166,10 +166,19 @@ Find:
             # Include actual website content in the prompt
             content_prompt = f"""
 Website Content from {domain}:
-{website_content[:2000]}...
+{website_content[:4000]}
 
-Based on this actual website content, extract the German legal identity information.
-{search_context}
+EXTRACT ONLY from the above content:
+1. Complete legal company name (must appear in content)
+2. Legal form (GmbH, AG, SE & Co. KGaA, etc. - must appear in content)
+3. Street name (must appear in content)
+4. House number (must appear in content)
+5. PLZ - 5-digit postal code (must appear in content)
+6. City (must appear in content)
+7. State/Bundesland (must appear in content)
+
+IMPORTANT: If ANY field is not found in the content above, return 'n/v' for that field.
+DO NOT generate or infer any information.
 """
 
             payload = {
@@ -177,16 +186,17 @@ Based on this actual website content, extract the German legal identity informat
                 "messages": [
                     {
                         "role": "system",
-                        "content": "Extract German legal identity information from the provided website content. "
-                        "ALWAYS find the complete legal company name, even if the input already contains a legal form. "
-                        "Use 'n/v' only if information is completely unavailable. Focus on official German legal forms and address formats."
+                        "content": "You are a strict data extraction system. Extract ONLY information that is explicitly present in the provided website content. "
+                        "DO NOT infer, guess, or generate any information. "
+                        "If a field is not found in the content, return 'n/v'. "
+                        "CRITICAL: Every extracted value must be copy-pasted from the source content."
                     },
                     {
                         "role": "user",
                         "content": content_prompt
                     }
                 ],
-                "temperature": 0.1,
+                "temperature": 0.0,
                 "max_tokens": 800,
                 "response_format": response_format
             }
