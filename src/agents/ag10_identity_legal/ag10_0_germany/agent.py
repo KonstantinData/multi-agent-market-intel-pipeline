@@ -211,7 +211,7 @@ DO NOT generate or infer any information.
             if content:
                 try:
                     legal_data = json.loads(content)
-                    return self._process_german_results(legal_data, company_name)
+                    return self._process_german_results(legal_data, company_name, domain)
                 except json.JSONDecodeError:
                     pass
 
@@ -220,7 +220,7 @@ DO NOT generate or infer any information.
 
         return self._fallback_german_data(company_name)
 
-    def _process_german_results(self, legal_data: Dict[str, Any], company_name: str) -> Dict[str, Any]:
+    def _process_german_results(self, legal_data: Dict[str, Any], company_name: str, domain: str) -> Dict[str, Any]:
         """Process and validate German legal extraction results."""
         accessed_at = datetime.now(timezone.utc).isoformat()
 
@@ -255,9 +255,9 @@ DO NOT generate or infer any information.
         }
 
         sources = [{
-            "publisher": f"{company_name} Impressum",
-            "url": f"https://{company_name.lower().replace(' ', '')}.com/impressum",
-            "title": f"German legal identity research for {company_name}",
+            "publisher": f"{legal_name} Impressum",
+            "url": f"https://www.{domain}/impressum",
+            "title": f"German legal identity research for {legal_name}",
             "accessed_at_utc": accessed_at
         }]
 
@@ -346,6 +346,8 @@ DO NOT generate or infer any information.
         ]
 
         content = ""
+        successful_url = None
+        
         for domain_var in domain_variants:
             for pattern in url_patterns:
                 url = f"https://{domain_var}{pattern}"
@@ -353,15 +355,21 @@ DO NOT generate or infer any information.
                     with httpx.Client(timeout=10.0, follow_redirects=True) as client:
                         resp = client.get(url)
                         if resp.status_code == 200:
+                            self.logger.info(f"Successfully fetched: {url}")
                             content += f"\n\n--- Content from {url} ---\n"
-                            content += resp.text[:2000]  # Increased per page
-                            if len(content) > 5000:  # Increased total limit
+                            content += resp.text[:4000]  # Increased per page
+                            successful_url = url
+                            if len(content) > 8000:  # Increased total limit
                                 return content
                 except Exception as e:
                     self.logger.debug(f"Failed to fetch {url}: {str(e)}")
                     continue
 
-        return content if content else "No website content available"
+        if not content:
+            self.logger.warning(f"No Impressum content found for domain: {domain}")
+            return "No website content available"
+        
+        return content
 
     def _create_step_meta(self) -> Dict[str, Any]:
         """Create step metadata."""
