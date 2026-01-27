@@ -139,6 +139,10 @@ Find:
         try:
             # First try to fetch actual website content
             website_content = self._fetch_website_content(domain)
+            
+            # Debug: Check if we got content
+            if website_content == "No website content available":
+                return self._fallback_german_data(company_name)
 
             response_format = {
                 "type": "json_schema",
@@ -324,10 +328,11 @@ If a field is not found, use 'n/v'.
 
     def _fetch_website_content(self, domain: str) -> str:
         """Fetch actual website content from impressum/legal pages."""
-        # Try both with and without www
-        domain_variants = [domain]
+        # Try www first, then without
+        domain_variants = []
         if not domain.startswith('www.'):
             domain_variants.append(f'www.{domain}')
+        domain_variants.append(domain)
 
         # German Impressum-specific URL patterns (legally required pages)
         url_patterns = [
