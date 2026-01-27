@@ -743,6 +743,12 @@ with tab_monitor:
         # Check pipeline status and show progress
         progress_info = get_pipeline_progress(run_root)
         
+        # Auto-refresh while pipeline is running
+        if st.session_state.get('pipeline_running', False) and not progress_info["pipeline_complete"]:
+            import time
+            time.sleep(2)  # Wait 2 seconds
+            st.rerun()  # Force refresh
+        
         # Check if subprocess is still running (if we have a PID)
         subprocess_status = "unknown"
         if st.session_state.get('pipeline_proc_pid'):
