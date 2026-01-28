@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 import streamlit as st
+from translations import get_text
 
 
 # -------------------------
@@ -333,14 +334,19 @@ def get_pipeline_progress(run_root: Path) -> dict[str, Any]:
     Calculate pipeline progress based on completed steps in the steps directory.
     """
     steps_dir = run_root / "steps"
-    manifest_path = run_root / "manifest.json"
+    exports_dir = run_root / "exports"
+    report_path = exports_dir / "report.md"
     
-    # Expected steps from DAG
+    # Expected steps from actual DAG (matching real pipeline)
     expected_steps = [
-        "AG-00", "AG-01", "AG-10", "AG-10.0", "AG-10.1", "AG-10.2", "AG-10.3", "AG-10.4",
-        "AG-11", "AG-15", "AG-20", "AG-21", "AG-30", "AG-31", "AG-40", "AG-41", "AG-42", 
-        "AG-50", "AG-51", "AG-60", "AG-61", "AG-62", "AG-70", "AG-71", "AG-72", 
-        "AG-80", "AG-81", "AG-82", "AG-83", "AG-90"
+        "AG-00", "AG-01", "AG-10.0", "AG-13", "AG-15",
+        "AG-20", "AG-21", "AG-30", "AG-31", 
+        "AG-40", "AG-41", "AG-42", 
+        "AG-50", "AG-51", 
+        "AG-60", "AG-61", "AG-62", 
+        "AG-70", "AG-71", "AG-72", 
+        "AG-80", "AG-81", "AG-82", "AG-83", 
+        "AG-90"
     ]
     
     completed_steps = []
@@ -349,15 +355,8 @@ def get_pipeline_progress(run_root: Path) -> dict[str, Any]:
             if step_dir.is_dir() and (step_dir / "output.json").exists():
                 completed_steps.append(step_dir.name)
     
-    # Check if pipeline is fully complete (manifest with exports exists)
-    pipeline_complete = False
-    if manifest_path.exists():
-        try:
-            manifest = read_json(manifest_path)
-            exports = manifest.get("exports", [])
-            pipeline_complete = len(exports) > 0
-        except Exception:
-            pass
+    # Check if pipeline is fully complete (report.md exists)
+    pipeline_complete = report_path.exists()
     
     total_steps = len(expected_steps)
     completed_count = len(completed_steps)
@@ -429,10 +428,13 @@ st.set_page_config(
     layout="wide",
 )
 
-st.title("Liquisto Market Intelligence Pipeline")
-
-
 # Session state
+if "language" not in st.session_state:
+    st.session_state.language = "en"
+
+if "form_key" not in st.session_state:
+    st.session_state.form_key = 0
+
 if "active_run_id" not in st.session_state:
     st.session_state.active_run_id = None
 
@@ -452,37 +454,32 @@ if "pipeline_running" not in st.session_state:
 if "current_tab" not in st.session_state:
     st.session_state.current_tab = "intake"
 
-if "switch_to_monitor" not in st.session_state:
-    st.session_state.switch_to_monitor = False
+st.markdown('<h3 style="color: #1e3a8a;">Liquisto Market Intelligence Pipeline</h3>', unsafe_allow_html=True)
 
-if "switch_to_results" not in st.session_state:
-    st.session_state.switch_to_results = False
+# Get current language first
+lang = st.session_state.language
 
+# Language toggle in sidebar
+with st.sidebar:
+    st.subheader("🌐 Language / Sprache")
+    lang_option = st.radio(
+        "Select language:",
+        options=["English", "Deutsch"],
+        index=0 if st.session_state.language == "en" else 1,
+        key="lang_radio",
+        label_visibility="collapsed"
+    )
+    if lang_option == "English" and st.session_state.language != "en":
+        st.session_state.language = "en"
+        st.rerun()
+    elif lang_option == "Deutsch" and st.session_state.language != "de":
+        st.session_state.language = "de"
+        st.rerun()
 
-# Handle automatic tab switching
-if st.session_state.switch_to_monitor:
-    st.session_state.current_tab = "monitor"
-    st.session_state.switch_to_monitor = False
-    st.rerun()
-
-if st.session_state.switch_to_results:
-    st.session_state.current_tab = "results"
-    st.session_state.switch_to_results = False
-    st.rerun()
-
-# Create tabs with active indication
+# Display content based on current_tab
 if st.session_state.current_tab == "intake":
-    tab_intake, tab_monitor, tab_results = st.tabs(["**1) Intake**", "2) Run Monitor", "3) Results"])
-elif st.session_state.current_tab == "monitor":
-    tab_intake, tab_monitor, tab_results = st.tabs(["1) Intake", "**2) Run Monitor**", "3) Results"])
-else:
-    tab_intake, tab_monitor, tab_results = st.tabs(["1) Intake", "2) Run Monitor", "**3) Results**"])
-
-
-# Detect tab clicks and update current_tab
-with tab_intake:
     # Don't set session state here - it causes rerun loops
-    st.subheader("Intake (Required)")
+    st.subheader(get_text('intake_required', lang))
     st.markdown("""
     <style>
     .stTextInput > div > div > input {
@@ -508,47 +505,47 @@ with tab_intake:
     """, unsafe_allow_html=True)
 
     company_name_raw = st.text_input(
-        "Company name *",
+        f"{get_text('company_name', lang)} *",
         placeholder="Liquisto Technologies GmbH",
-        key="intake_company_name",
+        key=f"intake_company_name_{st.session_state.form_key}",
     )
     web_domain_raw = st.text_input(
-        "Web domain *",
+        f"{get_text('web_domain', lang)} *",
         placeholder="liquisto.com",
-        key="intake_web_domain",
+        key=f"intake_web_domain_{st.session_state.form_key}",
     )
 
-    st.subheader("Intake (Optional - Wenn Headquarter Informationen bekannt bitte ergänzen)")
+    st.subheader(get_text('intake_optional', lang))
     col1, col2, col3 = st.columns(3)
     with col1:
-        city = st.text_input("City", placeholder="Stuttgart", key="intake_city")
-        postal_code = st.text_input("Postal code", placeholder="70173", key="intake_postal")
-        street_address = st.text_input("Street Address", placeholder="Musterstraße 123", key="intake_street")
+        city = st.text_input(get_text('city', lang), placeholder="Stuttgart", key=f"intake_city_{st.session_state.form_key}")
+        postal_code = st.text_input(get_text('postal_code', lang), placeholder="70173", key=f"intake_postal_{st.session_state.form_key}")
+        street_address = st.text_input(get_text('street_address', lang), placeholder="Musterstraße 123", key=f"intake_street_{st.session_state.form_key}")
     with col2:
-        country = st.text_input("Country", placeholder="Germany", key="intake_country")
-        parent_company = st.text_input("Parent company", placeholder="n/v", key="intake_parent")
-        phone_number = st.text_input("Phone Number", placeholder="+49 711 123456", key="intake_phone")
+        country = st.text_input(get_text('country', lang), placeholder="Germany", key=f"intake_country_{st.session_state.form_key}")
+        parent_company = st.text_input(get_text('parent_company', lang), placeholder="n/v", key=f"intake_parent_{st.session_state.form_key}")
+        phone_number = st.text_input(get_text('phone_number', lang), placeholder="+49 711 123456", key=f"intake_phone_{st.session_state.form_key}")
     with col3:
-        child_company = st.text_input("Child company", placeholder="n/v", key="intake_child")
-        industry = st.text_input("Industry", placeholder="Manufacturing", key="intake_industry")
+        child_company = st.text_input(get_text('child_company', lang), placeholder="n/v", key=f"intake_child_{st.session_state.form_key}")
+        industry = st.text_input(get_text('industry', lang), placeholder="Manufacturing", key=f"intake_industry_{st.session_state.form_key}")
 
-    st.subheader("Legal Identity Research Regions")
-    st.write("Select which regions to search for legal identity information:")
+    st.subheader(get_text('legal_regions', lang))
+    st.write(get_text('legal_regions_desc', lang))
     
     col_reg1, col_reg2, col_reg3 = st.columns(3)
     with col_reg1:
-        germany_enabled = st.checkbox("🇩🇪 Germany (AG-10.0)", value=True, key="region_germany", 
-                                    help="German Impressum extraction with legal forms (GmbH, AG, SE, etc.)")
-        dach_enabled = st.checkbox("🇦🇹🇨🇭 DACH Extension (AG-10.1)", value=False, key="region_dach",
-                                 help="Austria & Switzerland legal forms and 4-digit postal codes")
+        germany_enabled = st.checkbox(get_text('region_germany', lang), value=True, key=f"region_germany_{st.session_state.form_key}", 
+                                    help=get_text('region_germany_help', lang))
+        dach_enabled = st.checkbox(get_text('region_dach', lang), value=False, key=f"region_dach_{st.session_state.form_key}",
+                                 help=get_text('region_dach_help', lang))
     with col_reg2:
-        europe_enabled = st.checkbox("🇪🇺 Europe (AG-10.2)", value=False, key="region_europe",
-                                   help="European Union countries (SAS, SpA, BV, etc.)")
-        uk_enabled = st.checkbox("🇬🇧 UK (AG-10.3)", value=False, key="region_uk",
-                               help="United Kingdom legal forms (Ltd, PLC, LLP) and postcodes")
+        europe_enabled = st.checkbox(get_text('region_europe', lang), value=False, key=f"region_europe_{st.session_state.form_key}",
+                                   help=get_text('region_europe_help', lang))
+        uk_enabled = st.checkbox(get_text('region_uk', lang), value=False, key=f"region_uk_{st.session_state.form_key}",
+                               help=get_text('region_uk_help', lang))
     with col_reg3:
-        usa_enabled = st.checkbox("🇺🇸 USA (AG-10.4)", value=False, key="region_usa",
-                                help="United States legal forms (Inc, Corp, LLC) and ZIP codes")
+        usa_enabled = st.checkbox(get_text('region_usa', lang), value=False, key=f"region_usa_{st.session_state.form_key}",
+                                help=get_text('region_usa_help', lang))
 
     # Live normalization preview - hidden from UI
     company_name_canonical = normalize_whitespace(company_name_raw)
@@ -575,27 +572,25 @@ with tab_intake:
     # Check if at least one region is selected
     regions_selected = any([germany_enabled, dach_enabled, europe_enabled, uk_enabled, usa_enabled])
     if not regions_selected:
-        st.warning("⚠️ Please select at least one region for legal identity research.")
+        st.warning(get_text('no_region_warning', lang))
 
     # If typo warning is present, require explicit confirmation
     confirm_domain_checkbox = False
     if typo_info.get("warn"):
-        confirm_domain_checkbox = st.checkbox("I confirm the domain is correct (typo warning acknowledged)")
+        confirm_domain_checkbox = st.checkbox(get_text('typo_confirm', lang))
 
     start_disabled = (not required_ok) or (not regions_selected) or (typo_info.get("warn") and not confirm_domain_checkbox)
 
     colA, colB = st.columns([1, 1])
     with colA:
-        preview_btn = st.button("START RESEARCH", type="primary", disabled=start_disabled)
+        preview_btn = st.button(get_text('start_research', lang), type="primary", disabled=start_disabled)
 
     with colB:
-        reset_btn = st.button("Reset Intake")
+        reset_btn = st.button(get_text('reset_intake', lang))
 
     if reset_btn:
-        # Clear all session state
-        for key in list(st.session_state.keys()):
-            if key.startswith(('intake_', 'region_')):
-                del st.session_state[key]
+        # Increment form_key to reset all fields
+        st.session_state.form_key += 1
         st.session_state.show_preview = False
         st.session_state.draft_intake = None
         st.rerun()
@@ -626,17 +621,17 @@ with tab_intake:
     # Confirmation dialog trigger
     if st.session_state.show_preview and st.session_state.draft_intake is not None:
         
-        @st.dialog("🔍 Confirmation Step (Artifacts)")
+        @st.dialog(get_text('confirmation_title', lang))
         def confirmation_dialog():
             draft: IntakeCase = st.session_state.draft_intake
             preview_payload = asdict(draft)
             
-            # Replace None values with "keine Angaben" and boolean values
+            # Replace None values and boolean values
             for key, value in preview_payload.items():
                 if value is None:
-                    preview_payload[key] = "keine Angaben"
+                    preview_payload[key] = get_text('no_data', lang)
                 elif isinstance(value, bool):
-                    preview_payload[key] = "ausgewählt" if value else "nicht ausgewählt"
+                    preview_payload[key] = get_text('selected', lang) if value else get_text('not_selected', lang)
                     
             preview_payload["entity_key_preview"] = build_entity_key_from_domain(draft.web_domain)
             preview_payload["created_at_utc_preview"] = utc_now_iso()
@@ -646,7 +641,7 @@ with tab_intake:
             col1, col2 = st.columns(2)
             
             with col1:
-                if st.button("✅ Confirm & Create Run", type="primary", use_container_width=True):
+                if st.button(get_text('confirm_create', lang), type="primary", use_container_width=True):
                     run_id = build_run_id(draft.web_domain)
                     run_dirs = ensure_run_dirs(run_id)
 
@@ -659,13 +654,11 @@ with tab_intake:
                     st.session_state.active_run_id = run_id
                     st.session_state.show_preview = False
                     st.session_state.draft_intake = None
-                    st.session_state.switch_to_monitor = True
-
-                    st.success(f"✅ Run created: {run_id}")
+                    st.session_state.current_tab = "monitor"
                     st.rerun()
                     
             with col2:
-                if st.button("✏️ Edit", use_container_width=True):
+                if st.button(get_text('edit', lang), use_container_width=True):
                     st.session_state.show_preview = False
                     st.rerun()
         
@@ -675,7 +668,7 @@ with tab_intake:
 # =====================================================
 # 2) Run Monitor
 # =====================================================
-with tab_monitor:
+elif st.session_state.current_tab == "monitor":
     # Don't set session state here - it causes rerun loops
     st.subheader("📊 Run Monitor")
     run_id = st.session_state.active_run_id
@@ -686,130 +679,70 @@ with tab_monitor:
         st.write(f"Active run_id: `{run_id}`")
         run_root = RUNS_DIR / run_id
 
-        # Start Pipeline button
-        start_btn = st.button("🚀 Start Pipeline", type="primary")
-
-        if start_btn:
-            case_input_path = run_root / "meta" / "case_input.json"
-            if not case_input_path.exists():
-                st.error("case_input.json missing. Recreate the run.")
+        # Check if process is still running FIRST
+        import psutil
+        if st.session_state.get('pipeline_proc_pid'):
+            if psutil.pid_exists(st.session_state.pipeline_proc_pid):
+                st.session_state.pipeline_running = True
             else:
-                try:
-                    proc = start_pipeline_subprocess(run_id, case_input_path)
-                    st.session_state.pipeline_proc_pid = proc.pid
-                    st.success(f"✅ Pipeline started. PID={proc.pid}")
-                    st.session_state.pipeline_running = True
-                except FileNotFoundError:
-                    st.error("Orchestrator entrypoint not found: src.orchestrator.run_pipeline")
-
-        # Show loading animation when pipeline is running
-        if st.session_state.get('pipeline_running', False):
-            # Check if pipeline is actually complete
-            progress_info = get_pipeline_progress(run_root)
-            if progress_info["pipeline_complete"]:
                 st.session_state.pipeline_running = False
-            
-            # Only show animation if still running
-            if st.session_state.get('pipeline_running', False):
-                st.markdown("""
-                <style>
-                @keyframes spin {
-                    0% { transform: rotate(0deg); }
-                    100% { transform: rotate(360deg); }
-                }
-                .loading-spinner {
-                    border: 4px solid #f3f3f3;
-                    border-top: 4px solid #ff4b4b;
-                    border-radius: 50%;
-                    width: 50px;
-                    height: 50px;
-                    animation: spin 1s linear infinite;
-                    margin: 20px auto;
-                }
-                .loading-text {
-                    text-align: center;
-                    font-size: 18px;
-                    color: #ff4b4b;
-                    margin-top: 10px;
-                }
-                </style>
-                <div class="loading-spinner"></div>
-                <div class="loading-text">🚀 Pipeline is running...</div>
-                """, unsafe_allow_html=True)
-
-        # Progress bar placeholder
-        progress_placeholder = st.empty()
         
-        # Check pipeline status and show progress
+        # Check pipeline status
         progress_info = get_pipeline_progress(run_root)
         
-        # Auto-refresh while pipeline is running
-        if st.session_state.get('pipeline_running', False) and not progress_info["pipeline_complete"]:
-            import time
-            time.sleep(2)  # Wait 2 seconds
-            st.rerun()  # Force refresh
-        
-        # Check if subprocess is still running (if we have a PID)
-        subprocess_status = "unknown"
-        if st.session_state.get('pipeline_proc_pid'):
-            try:
-                import psutil
-                if psutil.pid_exists(st.session_state.pipeline_proc_pid):
-                    subprocess_status = "running"
-                else:
-                    subprocess_status = "terminated"
-                    st.session_state.pipeline_running = False
-            except ImportError:
-                # psutil not available, skip process check
-                pass
-        
-        with progress_placeholder.container():
-            if progress_info["pipeline_complete"]:
-                st.session_state.pipeline_running = False
-                st.progress(1.0, text="Pipeline completed successfully!")
-                st.success("✅ Pipeline completed successfully!")
-                st.balloons()
-                
-                # Auto-switch to Results tab
-                st.session_state.switch_to_results = True
-                st.rerun()
-            elif progress_info["status"] == "running":
-                progress = progress_info["progress"]
-                completed = progress_info["completed_steps"]
-                total = progress_info["total_steps"]
-                
-                st.progress(progress, text=f"Processing steps... ({completed}/{total} completed)")
-                st.write(f"**Progress: {progress*100:.1f}% completed**")
-                
-                # Show last completed step
-                if progress_info["completed_step_names"]:
-                    last_step = progress_info["completed_step_names"][-1]
-                    st.write(f"Last completed: {last_step}")
-                    
-                # Show subprocess status if available
-                if subprocess_status == "terminated" and not progress_info["pipeline_complete"]:
-                    st.error("⚠️ Pipeline process terminated unexpectedly. Check logs for errors.")
-            else:
-                st.info("Pipeline not started yet. Click 'Start Pipeline' to begin.")
-        
-        # Hidden background info - no longer shown
-        # st.markdown("### Run folders")
-        # st.code(str(run_root))
+        # If pipeline has progress but process died, keep showing progress
+        if progress_info["completed_steps"] > 0 and not progress_info["pipeline_complete"]:
+            st.session_state.pipeline_running = True
 
-        # Logs
-        log_path = run_root / "logs" / "pipeline.log"
-        with st.expander("📄 View Pipeline Logs"):
-            log_content = tail_log(log_path)
-            if log_content == "(no logs yet)":
-                st.info("No logs available yet. Pipeline may still be starting.")
+        # Start Pipeline button (only show if not running and no progress)
+        if not st.session_state.get('pipeline_running', False) and progress_info["completed_steps"] == 0:
+            start_btn = st.button("🚀 Start Pipeline", type="primary")
+
+            if start_btn:
+                case_input_path = run_root / "meta" / "case_input.json"
+                if not case_input_path.exists():
+                    st.error("case_input.json missing. Recreate the run.")
+                else:
+                    try:
+                        proc = start_pipeline_subprocess(run_id, case_input_path)
+                        st.session_state.pipeline_proc_pid = proc.pid
+                        st.session_state.pipeline_running = True
+                        st.rerun()
+                    except FileNotFoundError:
+                        st.error("Orchestrator entrypoint not found: src.orchestrator.run_pipeline")
+        
+        # Display progress
+        if progress_info["pipeline_complete"]:
+            st.session_state.pipeline_running = False
+            st.progress(1.0, text="✅ Pipeline completed successfully!")
+            st.success("✅ Pipeline completed successfully!")
+            st.balloons()
+            st.session_state.current_tab = "results"
+            st.rerun()
+        elif st.session_state.get('pipeline_running', False):
+            progress = progress_info["progress"]
+            completed = progress_info["completed_steps"]
+            total = progress_info["total_steps"]
+            
+            st.progress(progress, text=f"🔄 Processing... {completed}/{total} steps completed ({progress*100:.0f}%)")
+            
+            if progress_info["completed_step_names"]:
+                last_step = progress_info["completed_step_names"][-1]
+                st.info(f"📄 Current step: {last_step}")
             else:
-                st.text_area("pipeline.log (tail)", log_content, height=320)
+                st.info("🔄 Pipeline starting...")
+            
+            import time
+            time.sleep(2)
+            st.rerun()
+        else:
+            st.info("Pipeline not started yet. Click 'Start Pipeline' to begin.")
 
 
 # =====================================================
 # 3) Results
 # =====================================================
-with tab_results:
+elif st.session_state.current_tab == "results":
     # Don't set session state here - it causes rerun loops
     st.subheader("📊 Results")
     run_id = st.session_state.active_run_id
@@ -823,58 +756,81 @@ with tab_results:
         entities_path = exports_dir / "entities.json"
 
         # Check if results are available
-        if not report_path.exists() and not entities_path.exists():
+        if not report_path.exists():
             st.info("🔄 Pipeline still running. Results will appear here when completed.")
         else:
             st.success("✅ Results are ready!")
             
-            # Download buttons at the top
-            col_dl1, col_dl2 = st.columns(2)
+            # Convert MD to PDF
+            pdf_path = exports_dir / f"report_{run_id}.pdf"
             
-            with col_dl1:
-                if report_path.exists():
-                    st.download_button(
-                        label="📊 Download Report (MD)",
-                        data=report_path.read_text(encoding="utf-8"),
-                        file_name=f"report_{run_id}.md",
-                        mime="text/markdown",
-                        type="primary",
-                        use_container_width=True
-                    )
+            if report_path.exists():
+                try:
+                    import markdown
+                    from weasyprint import HTML
+                    
+                    # Read markdown
+                    md_content = report_path.read_text(encoding="utf-8")
+                    
+                    # Convert to HTML
+                    html_content = markdown.markdown(md_content, extensions=['tables', 'fenced_code'])
+                    
+                    # Add basic styling
+                    styled_html = f"""
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <meta charset="utf-8">
+                        <style>
+                            body {{ font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }}
+                            h1 {{ color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }}
+                            h2 {{ color: #34495e; margin-top: 30px; }}
+                            h3 {{ color: #7f8c8d; }}
+                            table {{ border-collapse: collapse; width: 100%; margin: 20px 0; }}
+                            th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
+                            th {{ background-color: #3498db; color: white; }}
+                            code {{ background-color: #f4f4f4; padding: 2px 6px; border-radius: 3px; }}
+                        </style>
+                    </head>
+                    <body>
+                        {html_content}
+                    </body>
+                    </html>
+                    """
+                    
+                    # Generate PDF
+                    HTML(string=styled_html).write_pdf(pdf_path)
+                    
+                except ImportError:
+                    st.error("PDF generation requires 'markdown' and 'weasyprint' packages. Install with: pip install markdown weasyprint")
+                    pdf_path = None
+                except Exception as e:
+                    st.error(f"Error generating PDF: {e}")
+                    pdf_path = None
             
-            with col_dl2:
-                if entities_path.exists():
-                    st.download_button(
-                        label="📊 Download Entities (JSON)",
-                        data=entities_path.read_text(encoding="utf-8"),
-                        file_name=f"entities_{run_id}.json",
-                        mime="application/json",
-                        use_container_width=True
-                    )
+            # Download button
+            if pdf_path and pdf_path.exists():
+                download_clicked = st.download_button(
+                    label="📄 Download Report (PDF)",
+                    data=pdf_path.read_bytes(),
+                    file_name=f"report_{run_id}.pdf",
+                    mime="application/pdf",
+                    type="primary",
+                    use_container_width=True
+                )
+                
+                if download_clicked:
+                    st.session_state.report_downloaded = True
             
-            st.divider()
-            
-            # Display results in two columns
-            col1, col2 = st.columns([1, 1])
-
-            with col1:
-                st.subheader("📄 Business Intelligence Report")
-                if report_path.exists():
-                    try:
-                        report_content = report_path.read_text(encoding="utf-8")
-                        st.markdown(report_content)
-                    except Exception as e:
-                        st.error(f"Error reading report: {e}")
-                else:
-                    st.info("Report not available yet.")
-
-            with col2:
-                st.subheader("📊 Entity Data (JSON)")
-                if entities_path.exists():
-                    try:
-                        entities_data = read_json(entities_path)
-                        st.json(entities_data)
-                    except Exception as e:
-                        st.error(f"Error reading entities: {e}")
-                else:
-                    st.info("Entity data not available yet.")
+            # New Research button (only after download)
+            if st.session_state.get('report_downloaded', False):
+                st.divider()
+                
+                if st.button("🔄 Start New Research", type="secondary", use_container_width=True):
+                    st.session_state.active_run_id = None
+                    st.session_state.pipeline_proc_pid = None
+                    st.session_state.pipeline_running = False
+                    st.session_state.report_downloaded = False
+                    st.session_state.current_tab = "intake"
+                    st.session_state.form_key += 1
+                    st.rerun()
