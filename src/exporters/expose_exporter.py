@@ -222,18 +222,6 @@ def build_report_markdown(registry_snapshot: Dict[str, Any]) -> str:
     if target:
         lines.append(f"**Founding Year:** {target.get('founding_year', 'n/a')}")
         lines.append("")
-        
-        # Company size profile
-        if target.get('attributes', {}).get('company_size_profile'):
-            profile = target['attributes']['company_size_profile']['target_company']
-            lines.append("### Company Size & Operations")
-            lines.append("")
-            metrics = profile.get('quantitative_metrics', {})
-            lines.append(f"**Annual Revenue:** {metrics.get('annual_revenue_eur', 'n/a')}")
-            lines.append(f"**Production Sites:** {metrics.get('number_of_production_sites', 'n/a')}")
-            lines.append(f"**PPE Value:** {metrics.get('ppe_value_eur', 'n/a')}")
-            lines.append(f"**MRO Inventory Value:** {metrics.get('mro_inventory_value_eur', 'n/a')}")
-            lines.append("")
     
     # Data sources for company profile
     profile_sources = [s for s in sources if isinstance(s, dict) and s.get('url', '').find('imsgear.com') != -1]

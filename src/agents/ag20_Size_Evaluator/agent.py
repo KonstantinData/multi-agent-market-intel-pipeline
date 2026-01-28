@@ -2,7 +2,7 @@
 AG-20 Size Evaluator (Liquisto Fit)
 
 Purpose:
-- Evaluate Liquisto lead fit based on AG-11 company size profile signals.
+- Evaluate Liquisto lead fit based on AG-13 firmographics signals.
 - Emit a weighted priority score, tier, rationale, and outreach hook.
 """
 
@@ -64,19 +64,20 @@ def _score_sites(count: Optional[int]) -> float:
     return 1.0
 
 
-def _score_operational_context(context: Dict[str, Any]) -> float:
-    if not context:
+def _score_operational_context(operational: Dict[str, Any]) -> float:
+    if not operational:
         return 5.0
-    m_and_a = _normalize_text(context.get("m_and_a_activity"))
-    erp = _normalize_text(context.get("erp_system"))
-    maintenance = _normalize_text(context.get("maintenance_structure"))
+    
+    legal_entities = operational.get("legal_entities", "")
+    supply_chain = _normalize_text(operational.get("supply_chain_presence", ""))
+    it_landscape = _normalize_text(operational.get("it_landscape", ""))
 
     score = 3.0
-    if m_and_a and m_and_a not in {"n/v", "none", "no", "nein"}:
+    if isinstance(legal_entities, list) and len(legal_entities) > 2:
         score += 3.0
-    if any(term in erp for term in ("fragmented", "legacy", "multiple", "mix", "hybrid")):
+    if any(term in supply_chain for term in ("multi", "complex", "global", "regional")):
         score += 2.0
-    if any(term in maintenance for term in ("decentral", "local", "plant", "regional")):
+    if any(term in it_landscape for term in ("fragmented", "legacy", "multiple", "heterogeneous")):
         score += 2.0
 
     return min(score, 10.0)
@@ -89,28 +90,18 @@ def _industry_bonus(industry: str) -> float:
     return 0.0
 
 
-def _extract_profile(
-    case_input: Dict[str, Any],
+def _extract_firmographics(
     meta_target_entity_stub: Dict[str, Any],
     registry_snapshot: Optional[Dict[str, Any]],
 ) -> Dict[str, Any]:
-    if isinstance(case_input.get("company_size_profile"), dict):
-        return case_input.get("company_size_profile")  # type: ignore[return-value]
-
     if registry_snapshot:
         for entity in registry_snapshot.get("entities", []):
             if not isinstance(entity, dict):
                 continue
             if entity.get("entity_id") == "TGT-001" or entity.get("entity_key") == meta_target_entity_stub.get("entity_key"):
-                attrs = entity.get("attributes")
-                if isinstance(attrs, dict) and isinstance(attrs.get("company_size_profile"), dict):
-                    return attrs.get("company_size_profile")  # type: ignore[return-value]
+                return entity.get("attributes", {})
 
-    attrs = meta_target_entity_stub.get("attributes")
-    if isinstance(attrs, dict) and isinstance(attrs.get("company_size_profile"), dict):
-        return attrs.get("company_size_profile")  # type: ignore[return-value]
-
-    return {}
+    return meta_target_entity_stub.get("attributes", {})
 
 
 class AgentAG20SizeEvaluator(BaseAgent):
@@ -133,26 +124,24 @@ class AgentAG20SizeEvaluator(BaseAgent):
         if not company_name or not domain or not entity_key:
             return AgentResult(ok=False, output={"error": "missing required meta artifacts"})
 
-        profile = _extract_profile(case_input, meta_target_entity_stub, registry_snapshot)
-        target_company = profile.get("target_company", {}) if isinstance(profile, dict) else {}
-        quantitative = target_company.get("quantitative_metrics", {}) if isinstance(target_company, dict) else {}
-        qualitative = target_company.get("qualitative_context", {}) if isinstance(target_company, dict) else {}
+        attrs = _extract_firmographics(meta_target_entity_stub, registry_snapshot)
+        
+        headcount = attrs.get("firmographics_headcount", {})
+        financial = attrs.get("firmographics_financial", {})
+        market = attrs.get("firmographics_market", {})
+        operational = attrs.get("firmographics_operational", {})
+        classification = attrs.get("industry_classification", {})
 
-        industry = _normalize_text(target_company.get("industry"))
+        industry = _normalize_text(classification.get("liquisto_class_label"))
 
-        annual_revenue = _coerce_float(quantitative.get("annual_revenue_eur"))
-        inventory_value = _coerce_float(quantitative.get("mro_inventory_value_eur"))
-        inventory_ratio = _coerce_float(quantitative.get("inventory_to_revenue_ratio"))
-        if inventory_ratio is None and annual_revenue and inventory_value:
-            inventory_ratio = inventory_value / annual_revenue
-
-        ppe_value = _coerce_float(quantitative.get("ppe_value_eur"))
+        annual_revenue = _coerce_float(financial.get("revenue_last_fy"))
+        inventory_ratio = None
         ppe_ratio = None
-        if ppe_value is not None and annual_revenue:
-            ppe_ratio = ppe_value / annual_revenue
-
-        production_sites = _coerce_float(quantitative.get("number_of_production_sites"))
-        sites_count = int(round(production_sites)) if production_sites is not None else None
+        
+        sites_count = None
+        locations = headcount.get("employees_by_location", [])
+        if isinstance(locations, list):
+            sites_count = len([loc for loc in locations if isinstance(loc, dict)])
 
         scores = {
             "mro_inventory_intensity": _score_ratio(
@@ -164,7 +153,7 @@ class AgentAG20SizeEvaluator(BaseAgent):
                 [(0.3, 10.0), (0.15, 7.0), (0.05, 4.0)],
             ),
             "site_fragmentation": _score_sites(sites_count),
-            "operational_context": _score_operational_context(qualitative),
+            "operational_context": _score_operational_context(operational),
             "industry_core_fit": 10.0 if _industry_bonus(industry) > 0 else 5.0,
         }
 
