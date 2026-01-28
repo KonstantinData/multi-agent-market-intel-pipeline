@@ -28,6 +28,7 @@ def _base_ag10_output() -> dict:
                 "legal_form": "GmbH",
                 "founding_year": "n/v",
                 "registration_signals": "n/v",
+                "email": "info@liquisto.com",
             }
         ],
         "relations_delta": [],
