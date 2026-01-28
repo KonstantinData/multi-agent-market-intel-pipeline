@@ -1,0 +1,75 @@
+version: "1.0"
+match:
+  ngrams: [1, 2, 3]
+  normalize:
+    lowercase: true
+    strip_punctuation: true
+    umlauts: true
+
+rules:
+  - target_type: "class"
+    target_id: "INDUSTRY_AUTOMATION_MOTION"
+    include:
+      - { term: "sps", weight: 4 }
+      - { term: "plc", weight: 4 }
+      - { term: "servomotor", weight: 5 }
+      - { term: "servo drive", weight: 5 }
+      - { term: "frequenzumrichter", weight: 5 }
+      - { term: "umrichter", weight: 3 }
+      - { term: "antriebstechnik", weight: 4 }
+      - { term: "getriebe", weight: 4 }
+      - { term: "lager", weight: 3 }
+      - { term: "sensorik", weight: 3 }
+      - { term: "regeltechnik", weight: 3 }
+      - { term: "schaltschrank", weight: 4 }
+      - { term: "schaltanlage", weight: 4 }
+    exclude:
+      - { term: "steuerberatung", weight: -10 }
+
+  - target_type: "class"
+    target_id: "ELECTRONICS_SMD"
+    include:
+      - { term: "smd", weight: 6 }
+      - { term: "pcb", weight: 5 }
+      - { term: "leiterplatte", weight: 5 }
+      - { term: "bestückung", weight: 4 }
+      - { term: "ems", weight: 4 }
+      - { term: "elektronische bauelemente", weight: 5 }
+      - { term: "halbleiter", weight: 5 }
+
+  - target_type: "class"
+    target_id: "HYDRAULICS_PNEUMATICS_PUMPS"
+    include:
+      - { term: "hydraulik", weight: 5 }
+      - { term: "pneumatik", weight: 5 }
+      - { term: "ventil", weight: 3 }
+      - { term: "zylinder", weight: 3 }
+      - { term: "kompressor", weight: 4 }
+      - { term: "pumpe", weight: 4 }
+      - { term: "druckluft", weight: 4 }
+
+  - target_type: "class"
+    target_id: "INTRALOGISTICS_COMPONENTS"
+    include:
+      - { term: "fördertechnik", weight: 5 }
+      - { term: "förderband", weight: 5 }
+      - { term: "intralogistik", weight: 6 }
+      - { term: "förderer", weight: 4 }
+      - { term: "hebezeug", weight: 4 }
+      - { term: "kran", weight: 3 }
+      - { term: "materialfluss", weight: 4 }
+
+  - target_type: "tag"
+    target_id: "VERT_MEDTECH"
+    include:
+      - { term: "medizintechnik", weight: 6 }
+      - { term: "medizinprodukt", weight: 6 }
+      - { term: "mdd", weight: 3 }
+      - { term: "mdr", weight: 4 }
+      - { term: "iso 13485", weight: 6 }
+      - { term: "zahntechnik", weight: 4 }
+
+confidence:
+  min_evidence_hits: 1
+  min_score: 6
+  margin_to_runner_up: 2

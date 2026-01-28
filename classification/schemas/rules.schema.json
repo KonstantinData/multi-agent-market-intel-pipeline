@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/rules.schema.json",
+  "title": "Liquisto Classification Rules",
+  "type": "object",
+  "required": ["version", "match", "rules", "confidence"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "type": "string", "minLength": 1 },
+
+    "match": {
+      "type": "object",
+      "required": ["ngrams", "normalize"],
+      "additionalProperties": false,
+      "properties": {
+        "ngrams": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "integer", "minimum": 1, "maximum": 5 }
+        },
+        "normalize": {
+          "type": "object",
+          "required": ["lowercase", "strip_punctuation", "umlauts"],
+          "additionalProperties": false,
+          "properties": {
+            "lowercase": { "type": "boolean" },
+            "strip_punctuation": { "type": "boolean" },
+            "umlauts": { "type": "boolean" }
+          }
+        }
+      }
+    },
+
+    "rules": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/rule" }
+    },
+
+    "confidence": {
+      "type": "object",
+      "required": ["min_evidence_hits", "min_score", "margin_to_runner_up"],
+      "additionalProperties": false,
+      "properties": {
+        "min_evidence_hits": { "type": "integer", "minimum": 0, "maximum": 10 },
+        "min_score": { "type": "number", "minimum": 0 },
+        "margin_to_runner_up": { "type": "number", "minimum": 0 }
+      }
+    }
+  },
+
+  "$defs": {
+    "termWeight": {
+      "type": "object",
+      "required": ["term", "weight"],
+      "additionalProperties": false,
+      "properties": {
+        "term": { "type": "string", "minLength": 1 },
+        "weight": { "type": "number" }
+      }
+    },
+
+    "rule": {
+      "type": "object",
+      "required": ["target_type", "target_id", "include"],
+      "additionalProperties": false,
+      "properties": {
+        "target_type": { "type": "string", "enum": ["class", "tag"] },
+        "target_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Z0-9_]+$"
+        },
+        "include": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/termWeight" }
+        },
+        "exclude": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/termWeight" }
+        },
+        "evidence_terms": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

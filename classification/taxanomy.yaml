@@ -1,0 +1,43 @@
+version: "1.0"
+owner: "Liquisto"
+language: "de"
+levels: 2
+
+classes:
+  - id: "INDUSTRY_AUTOMATION_MOTION"
+    label: "Industrieautomation & Motion Control"
+    level: 1
+    codes:
+      - { system: "WZ/NACE", code: "27.11", label: "Elektromotoren/Generatoren/Transformatoren" }
+      - { system: "WZ/NACE", code: "27.12", label: "Elektrizitätsverteilungs- und Schalteinrichtungen" }
+      - { system: "WZ/NACE", code: "28.15", label: "Lager, Getriebe, Zahnräder, Antriebselemente" }
+      - { system: "WZ/NACE", code: "26.12", label: "Bestückte Leiterplatten / Interfacekarten" }
+      - { system: "WZ/NACE", code: "26.51", label: "Mess-/Prüf-/Regeltechnik (Sensorik/Controls)" }
+      - { system: "WZ/NACE", code: "27.40", label: "Elektrische Beleuchtungsgeräte (z. B. Ex-Leuchten)" }
+
+  - id: "ELECTRONICS_SMD"
+    label: "Electronics & SMD Components"
+    level: 1
+    codes:
+      - { system: "WZ/NACE", code: "26.11", label: "Elektronische Bauelemente (inkl. Halbleiter)" }
+      - { system: "WZ/NACE", code: "26.12", label: "Bestückte Leiterplatten" }
+
+  - id: "HYDRAULICS_PNEUMATICS_PUMPS"
+    label: "Hydraulics, Pneumatics & Pumps"
+    level: 1
+    codes:
+      - { system: "WZ/NACE", code: "28.12", label: "Hydraulische und pneumatische Komponenten" }
+      - { system: "WZ/NACE", code: "28.13", label: "Pumpen und Kompressoren a. n. g." }
+
+  - id: "INTRALOGISTICS_COMPONENTS"
+    label: "Intralogistics Components & Accessories"
+    level: 1
+    codes:
+      - { system: "WZ/NACE", code: "28.22", label: "Hebezeuge und Fördermittel (Fördertechnik)" }
+
+tags:
+  - id: "VERT_MEDTECH"
+    label: "Medizintechnik"
+    codes:
+      - { system: "WZ/NACE", code: "32.50", label: "Medizinische und zahnmedizinische Apparate/Materialien" }
+      - { system: "WZ/NACE", code: "26.60", label: "Bestrahlungs- und elektromedizinische Geräte" }

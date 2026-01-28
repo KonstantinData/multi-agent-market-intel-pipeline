@@ -106,6 +106,27 @@ def build_report_markdown(registry_snapshot: Dict[str, Any]) -> str:
         lines.append(f"**Domain:** {domain}")
         lines.append(f"**Legal Form:** {target.get('legal_form', 'n/a')}")
         lines.append(f"**Industry:** {target.get('industry', 'n/a')}")
+        
+        # Northdata classification data
+        if target.get('register_number') and target.get('register_number') != 'n/a':
+            lines.append("")
+            lines.append("### Official Registration (Northdata)")
+            lines.append(f"**Register Court:** {target.get('register_court', 'n/a')}")
+            lines.append(f"**Register Number:** {target.get('register_number', 'n/a')}")
+            lines.append(f"**Register Type:** {target.get('register_type', 'n/a')}")
+            lines.append(f"**Northdata ID:** {target.get('northdata_id', 'n/a')}")
+            
+            # Publications
+            publications = target.get('northdata_publications', [])
+            if publications:
+                lines.append("")
+                lines.append("#### Recent Publications (Handelsregister)")
+                lines.append("")
+                for pub in publications:
+                    lines.append(f"**{pub.get('date', 'n/a')}**")
+                    lines.append(f"- {pub.get('text', 'n/a')}")
+                    lines.append("")
+        
         lines.append("")
         
     # Contact Information

@@ -74,6 +74,16 @@ def run_pipeline(
     steps_summary = []
 
     for step_id in dag.steps_order:
+        # Skip AG-11.1 if no European region was selected
+        if step_id == "AG-11.1":
+            european_regions = [
+                case_input.get("region_germany", False),
+                case_input.get("region_dach", False),
+                case_input.get("region_europe", False)
+            ]
+            if not any(european_regions):
+                continue
+        
         step_dir = ctx.step_dir(step_id)
         step_dir.mkdir(parents=True, exist_ok=True)
 
