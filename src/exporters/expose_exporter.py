@@ -105,7 +105,6 @@ def build_report_markdown(registry_snapshot: Dict[str, Any]) -> str:
         lines.append(f"**Legal Name:** {target.get('legal_name', 'n/a')}")
         lines.append(f"**Domain:** {domain}")
         lines.append(f"**Legal Form:** {target.get('legal_form', 'n/a')}")
-        lines.append(f"**Industry:** {target.get('industry', 'n/a')}")
         
         # Northdata classification data
         if target.get('register_number') and target.get('register_number') != 'n/a':
@@ -127,33 +126,6 @@ def build_report_markdown(registry_snapshot: Dict[str, Any]) -> str:
                     lines.append(f"- {pub.get('text', 'n/a')}")
                     lines.append("")
         
-        # Liquisto classification
-        if target.get('liquisto_class') and target.get('liquisto_class') != 'n/v':
-            lines.append("")
-            lines.append("### Industry Classification")
-            lines.append("")
-            lines.append(f"**Primary Classification:** {target.get('liquisto_class_label', 'n/a')}")
-            lines.append(f"**Classification ID:** {target.get('liquisto_class', 'n/a')}")
-            lines.append(f"**Confidence Level:** {target.get('liquisto_class_confidence', 'n/a').upper()}")
-            
-            # WZ/NACE Codes
-            wz_codes = target.get('wz_codes', [])
-            if wz_codes:
-                lines.append("")
-                lines.append("**Applicable WZ/NACE Industry Codes:**")
-                lines.append("")
-                for code in wz_codes:
-                    lines.append(f"- **{code.get('code', 'n/a')}** - {code.get('label', 'n/a')}")
-            
-            # Vertical Tags
-            tags = target.get('liquisto_tags', [])
-            if tags:
-                lines.append("")
-                lines.append("**Industry Verticals:**")
-                lines.append("")
-                for tag in tags:
-                    lines.append(f"- {tag.get('label', 'n/a')}")
-        
         lines.append("")
         
     # Contact Information
@@ -173,6 +145,34 @@ def build_report_markdown(registry_snapshot: Dict[str, Any]) -> str:
         lines.append(f"**Country:** {target.get('country', 'n/a')}")
         lines.append(f"**Phone:** {target.get('phone_number', 'n/a')}")
         lines.append(f"**E-Mail:** {target.get('email', 'n/a')}")
+        lines.append("")
+    
+    # Industry Classification
+    if target and target.get('liquisto_class') and target.get('liquisto_class') != 'n/v':
+        lines.append("## Industry Classification")
+        lines.append("")
+        lines.append(f"**Primary Classification:** {target.get('liquisto_class_label', 'n/a')}")
+        lines.append(f"**Classification ID:** {target.get('liquisto_class', 'n/a')}")
+        lines.append(f"**Confidence Level:** {target.get('liquisto_class_confidence', 'n/a').upper()}")
+        
+        # WZ/NACE Codes
+        wz_codes = target.get('wz_codes', [])
+        if wz_codes:
+            lines.append("")
+            lines.append("**Applicable WZ/NACE Industry Codes:**")
+            lines.append("")
+            for code in wz_codes:
+                lines.append(f"- **{code.get('code', 'n/a')}** - {code.get('label', 'n/a')}")
+        
+        # Vertical Tags
+        tags = target.get('liquisto_tags', [])
+        if tags:
+            lines.append("")
+            lines.append("**Industry Verticals:**")
+            lines.append("")
+            for tag in tags:
+                lines.append(f"- {tag.get('label', 'n/a')}")
+        
         lines.append("")
         
     # Company History

@@ -83,7 +83,6 @@ class AG10_1_IdentityLegalDACH(BaseAgent):
                     "legal_name": legal_data["legal_name"],
                     "legal_form": legal_data["legal_form"],
                     "domain": case_input.get("web_domain", "n/v"),
-                    "industry": case_input.get("industry", "n/v"),
                     "street_name": legal_data["street_name"],
                     "house_number": legal_data["house_number"],
                     "postal_code": legal_data["postal_code"],

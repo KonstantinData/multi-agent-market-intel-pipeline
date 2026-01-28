@@ -78,7 +78,6 @@ class AG10_0_IdentityLegalGermany(BaseAgent):
                     "legal_name": legal_data["legal_name"],
                     "legal_form": legal_data["legal_form"],
                     "domain": case_input.get("web_domain", "n/v"),
-                    "industry": case_input.get("industry", "n/v"),
                     "street_name": legal_data["street_name"],
                     "house_number": legal_data["house_number"],
                     "postal_code": legal_data["postal_code"],
@@ -118,11 +117,14 @@ class AG10_0_IdentityLegalGermany(BaseAgent):
         """
         api_key = os.getenv("OPEN-AI-KEY") or os.getenv("OPENAI_API_KEY")
         if not api_key:
+            print(f"[AG-10.0 DEBUG] No API key found, using fallback")
             return self._fallback_german_data(company_name)
 
         try:
             # First try to fetch actual website content
             website_content = self._fetch_website_content(domain)
+            print(f"[AG-10.0 DEBUG] Fetched {len(website_content)} chars from website")
+            print(f"[AG-10.0 DEBUG] Content preview: {website_content[:500]}")
 
             response_format = {
                 "type": "json_schema",
@@ -187,20 +189,26 @@ If a field is not found, use 'n/v'.
             }
 
             headers = {"Authorization": f"Bearer {api_key}"}
+            print(f"[AG-10.0 DEBUG] Calling OpenAI API...")
             with httpx.Client(timeout=30.0) as client:
                 resp = client.post("https://api.openai.com/v1/chat/completions", json=payload, headers=headers)
+                print(f"[AG-10.0 DEBUG] OpenAI response status: {resp.status_code}")
                 resp.raise_for_status()
                 data = resp.json()
 
             content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+            print(f"[AG-10.0 DEBUG] OpenAI response content: {content[:500]}")
             if content:
                 try:
                     legal_data = json.loads(content)
+                    print(f"[AG-10.0 DEBUG] Parsed legal data: {legal_data}")
                     return self._process_german_results(legal_data, company_name, domain)
-                except json.JSONDecodeError:
+                except json.JSONDecodeError as e:
+                    print(f"[AG-10.0 DEBUG] JSON decode error: {e}")
                     pass
 
-        except Exception:
+        except Exception as e:
+            print(f"[AG-10.0 DEBUG] Exception in extraction: {type(e).__name__}: {str(e)}")
             pass
 
         return self._fallback_german_data(company_name)
