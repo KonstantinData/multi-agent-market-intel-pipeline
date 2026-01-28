@@ -173,7 +173,6 @@ def create_repo_tree(repo_root: Path) -> None:
     agent_dirs = [
         "ag00_intake_normalization",
         "ag10_identity_legal",
-        "ag11_company_size",
         "ag15_network_mapper",
         "ag20_Size_Evaluator",
         "ag21_financial_development",

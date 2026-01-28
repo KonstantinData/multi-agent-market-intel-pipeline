@@ -116,33 +116,6 @@ steps:
         - "missing_sources_for_claims"
         - "source_missing_required_fields"
 
-  - step_id: "AG-11"
-    agent_name: "ag11_company_size"
-    purpose: "Assemble quantitative and qualitative company size signals for Liquisto evaluation"
-    inputs:
-      required_meta_artifacts:
-        - "case_normalized.json"
-        - "target_entity_stub.json"
-    outputs:
-      required_sections:
-        - "step_meta"
-        - "entities_delta"
-        - "relations_delta"
-        - "findings"
-        - "sources"
-        - "company_size_profile"
-      step_meta_required_fields:
-        - "step_id"
-        - "agent_name"
-        - "run_id"
-        - "started_at_utc"
-        - "finished_at_utc"
-        - "pipeline_version"
-    validation:
-      hard_fail_if:
-        - "missing_required_sections"
-        - "missing_required_fields"
-
   - step_id: "AG-15"
     agent_name: "ag15_network_mapper"
     purpose: "Expand lead universe by identifying related companies and mapping business relationships"
