@@ -124,6 +124,7 @@ def build_report_markdown(registry_snapshot: Dict[str, Any]) -> str:
         lines.append(f"**City:** {target.get('city', 'n/a')}")
         lines.append(f"**Country:** {target.get('country', 'n/a')}")
         lines.append(f"**Phone:** {target.get('phone_number', 'n/a')}")
+        lines.append(f"**E-Mail:** {target.get('email', 'n/a')}")
         lines.append("")
         
     # Company History
