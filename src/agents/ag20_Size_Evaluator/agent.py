@@ -127,7 +127,6 @@ class AgentAG20SizeEvaluator(BaseAgent):
         attrs = _extract_firmographics(meta_target_entity_stub, registry_snapshot)
         
         headcount = attrs.get("firmographics_headcount", {})
-        financial = attrs.get("firmographics_financial", {})
         operational = attrs.get("firmographics_operational", {})
         classification = attrs.get("industry_classification", {})
 
