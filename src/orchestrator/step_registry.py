@@ -35,6 +35,7 @@ STEP_ENTRYPOINTS: Dict[str, StepEntrypoint] = {
     "AG-10.4": StepEntrypoint("src.agents.ag10_identity_legal.ag10_4_usa.agent", "Agent"),
     
     # Company Classification Agents
+    "AG-11.0": StepEntrypoint("src.agents.ag11_company_classification.ag11_0_liquisto_classifier.agent", "Agent"),
     "AG-11.1": StepEntrypoint("src.agents.ag11_company_classification.ag11_1_northdata.agent", "Agent"),
     
     "AG-13": StepEntrypoint("src.agents.ag13_company_size.agent", "Agent"),
