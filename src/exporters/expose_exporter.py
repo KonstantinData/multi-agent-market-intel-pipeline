@@ -175,6 +175,47 @@ def build_report_markdown(registry_snapshot: Dict[str, Any]) -> str:
         
         lines.append("")
         
+    # Firmographics
+    if target:
+        firmographics_sections = []
+        
+        # Headcount
+        if target.get('firmographics_headcount'):
+            firmographics_sections.append(("Headcount", target['firmographics_headcount']))
+        
+        # Financial
+        if target.get('firmographics_financial'):
+            firmographics_sections.append(("Financial Indicators", target['firmographics_financial']))
+        
+        # Market
+        if target.get('firmographics_market'):
+            firmographics_sections.append(("Market & Scaling", target['firmographics_market']))
+        
+        # Operational
+        if target.get('firmographics_operational'):
+            firmographics_sections.append(("Operational Complexity", target['firmographics_operational']))
+        
+        # External
+        if target.get('firmographics_external'):
+            firmographics_sections.append(("External Signals", target['firmographics_external']))
+        
+        # Buying Power
+        if target.get('firmographics_buying_power'):
+            firmographics_sections.append(("Buying Power", target['firmographics_buying_power']))
+        
+        if firmographics_sections:
+            lines.append("## Firmographics")
+            lines.append("")
+            
+            for section_title, section_data in firmographics_sections:
+                lines.append(f"### {section_title}")
+                lines.append("")
+                for key, value in section_data.items():
+                    if value and value != "n/v":
+                        label = key.replace("_", " ").title()
+                        lines.append(f"**{label}:** {value}")
+                lines.append("")
+    
     # Company History
     lines.append("## Company History")
     lines.append("")

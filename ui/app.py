@@ -339,7 +339,9 @@ def get_pipeline_progress(run_root: Path) -> dict[str, Any]:
     
     # Expected steps from actual DAG (matching real pipeline)
     expected_steps = [
-        "AG-00", "AG-01", "AG-10.0", "AG-11.0", "AG-11.1", "AG-13", "AG-15",
+        "AG-00", "AG-01", "AG-10.0", "AG-11.0", "AG-11.1", 
+        "AG-13.0", "AG-13.1", "AG-13.2", "AG-13.3", "AG-13.4", "AG-13.5",
+        "AG-15",
         "AG-20", "AG-21", "AG-30", "AG-31", 
         "AG-40", "AG-41", "AG-42", 
         "AG-50", "AG-51", 

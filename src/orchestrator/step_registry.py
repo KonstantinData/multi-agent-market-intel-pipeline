@@ -38,7 +38,14 @@ STEP_ENTRYPOINTS: Dict[str, StepEntrypoint] = {
     "AG-11.0": StepEntrypoint("src.agents.ag11_company_classification.ag11_0_liquisto_classifier.agent", "Agent"),
     "AG-11.1": StepEntrypoint("src.agents.ag11_company_classification.ag11_1_northdata.agent", "Agent"),
     
-    "AG-13": StepEntrypoint("src.agents.ag13_company_size.agent", "Agent"),
+    # Firmographics Agents
+    "AG-13.0": StepEntrypoint("src.agents.ag13_Firmographics.ag13_0_headount.agent", "Agent"),
+    "AG-13.1": StepEntrypoint("src.agents.ag13_Firmographics.ag13_1_financial_indicators.agent", "Agent"),
+    "AG-13.2": StepEntrypoint("src.agents.ag13_Firmographics.ag13_2_market_scaling_indicators.agent", "Agent"),
+    "AG-13.3": StepEntrypoint("src.agents.ag13_Firmographics.ag13_3_operational_complexity.agent", "Agent"),
+    "AG-13.4": StepEntrypoint("src.agents.ag13_Firmographics.ag13_4_signals_from_external_effects.agent", "Agent"),
+    "AG-13.5": StepEntrypoint("src.agents.ag13_Firmographics.ag13_5_buying_power.agent", "Agent"),
+    
     "AG-15": StepEntrypoint("src.agents.ag15_network_mapper.agent", "Agent"),
     "AG-20": StepEntrypoint("src.agents.ag20_Size_Evaluator.agent", "Agent"),
 
