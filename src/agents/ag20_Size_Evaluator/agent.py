@@ -128,13 +128,11 @@ class AgentAG20SizeEvaluator(BaseAgent):
         
         headcount = attrs.get("firmographics_headcount", {})
         financial = attrs.get("firmographics_financial", {})
-        market = attrs.get("firmographics_market", {})
         operational = attrs.get("firmographics_operational", {})
         classification = attrs.get("industry_classification", {})
 
         industry = _normalize_text(classification.get("liquisto_class_label"))
 
-        annual_revenue = _coerce_float(financial.get("revenue_last_fy"))
         inventory_ratio = None
         ppe_ratio = None
         

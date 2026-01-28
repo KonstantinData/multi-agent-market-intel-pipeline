@@ -104,7 +104,7 @@ class AG11_1_NorthdataAgent(BaseAgent):
                         return data[0].get("id")
                     elif isinstance(data, dict) and data.get("id"):
                         return data.get("id")
-        except Exception as e:
+        except Exception:
             pass
         
         return None
@@ -122,7 +122,7 @@ class AG11_1_NorthdataAgent(BaseAgent):
                 )
                 if resp.status_code == 200:
                     return resp.json()
-        except Exception as e:
+        except Exception:
             pass
         
         return None

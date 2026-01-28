@@ -117,7 +117,7 @@ class AG10_0_IdentityLegalGermany(BaseAgent):
         """
         api_key = os.getenv("OPEN-AI-KEY") or os.getenv("OPENAI_API_KEY")
         if not api_key:
-            print(f"[AG-10.0 DEBUG] No API key found, using fallback")
+            print("[AG-10.0 DEBUG] No API key found, using fallback")
             return self._fallback_german_data(company_name)
 
         try:
@@ -189,7 +189,7 @@ If a field is not found, use 'n/v'.
             }
 
             headers = {"Authorization": f"Bearer {api_key}"}
-            print(f"[AG-10.0 DEBUG] Calling OpenAI API...")
+            print("[AG-10.0 DEBUG] Calling OpenAI API...")
             with httpx.Client(timeout=30.0) as client:
                 resp = client.post("https://api.openai.com/v1/chat/completions", json=payload, headers=headers)
                 print(f"[AG-10.0 DEBUG] OpenAI response status: {resp.status_code}")

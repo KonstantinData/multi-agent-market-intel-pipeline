@@ -71,7 +71,6 @@ def build_report_markdown(registry_snapshot: Dict[str, Any]) -> str:
     """
     entities = registry_snapshot.get("entities") or []
     findings = registry_snapshot.get("findings") or []
-    sources = registry_snapshot.get("sources") or []
 
     # Find target company
     target = None
