@@ -104,6 +104,8 @@ steps:
         - "legal_form"
         - "founding_year"
         - "registration_signals"
+        - "phone_number"
+        - "email"
     validation:
       hard_fail_if:
         - "missing_required_sections"

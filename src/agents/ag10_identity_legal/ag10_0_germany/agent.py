@@ -84,6 +84,8 @@ class AG10_0_IdentityLegalGermany(BaseAgent):
                     "postal_code": legal_data["postal_code"],
                     "city": legal_data["city"],
                     "state": legal_data["state"],
+                    "phone_number": legal_data.get("phone_number", "n/v"),
+                    "email": legal_data.get("email", "n/v"),
                     "country": "Germany",
                     "country_code": "DE"
                 }
@@ -154,9 +156,11 @@ Find:
                             "house_number": {"type": "string"},
                             "postal_code": {"type": "string"},
                             "city": {"type": "string"},
-                            "state": {"type": "string"}
+                            "state": {"type": "string"},
+                            "phone_number": {"type": "string"},
+                            "email": {"type": "string"}
                         },
-                        "required": ["legal_name", "legal_form", "street_name", "house_number", "postal_code", "city", "state"],
+                        "required": ["legal_name", "legal_form", "street_name", "house_number", "postal_code", "city", "state", "phone_number", "email"],
                         "additionalProperties": False
                     }
                 }
@@ -175,6 +179,8 @@ Extract the following from the Impressum section above:
 5. PLZ - 5-digit postal code (e.g., "78166")
 6. City (e.g., "Donaueschingen")
 7. State/Bundesland (e.g., "Baden-Württemberg")
+8. Phone number (e.g., "+49 (0) 771 8507-0")
+9. Email address (e.g., "info@company.com")
 
 If a field is not found, use 'n/v'.
 """
@@ -266,6 +272,8 @@ If a field is not found, use 'n/v'.
             "postal_code": postal_code,
             "city": legal_data.get("city", "n/v"),
             "state": legal_data.get("state", "n/v"),
+            "phone_number": legal_data.get("phone_number", "n/v"),
+            "email": legal_data.get("email", "n/v"),
             "findings": findings,
             "sources": sources
         }
@@ -318,6 +326,8 @@ If a field is not found, use 'n/v'.
             "postal_code": "n/v",
             "city": "n/v",
             "state": "n/v",
+            "phone_number": "n/v",
+            "email": "n/v",
             "findings": findings,
             "sources": sources
         }

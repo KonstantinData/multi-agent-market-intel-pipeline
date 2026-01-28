@@ -89,6 +89,8 @@ class AG10_1_IdentityLegalDACH(BaseAgent):
                     "postal_code": legal_data["postal_code"],
                     "city": legal_data["city"],
                     "state": legal_data["state"],
+                    "phone_number": legal_data.get("phone_number", "n/v"),
+                    "email": legal_data.get("email", "n/v"),
                     "country": legal_data["country"],
                     "country_code": legal_data["country_code"]
                 }
@@ -140,7 +142,9 @@ Find:
 2. Legal form (Austria: GmbH, AG, e.U., OG, KG / Switzerland: AG, GmbH, Einzelfirma)
 3. Address: Street name, house number (may include /Top/Tür for Austria), 4-digit postal code, city, state/canton
 4. Country (Austria/Österreich or Switzerland/Schweiz)
-5. Only extract information from official company website/Impressum
+5. Phone number (e.g., "+43 1 234567" or "+41 44 1234567")
+6. Email address (e.g., "info@company.com")
+7. Only extract information from official company website/Impressum
 """
         
         try:
@@ -163,9 +167,11 @@ Find:
                             "city": {"type": "string"},
                             "state": {"type": "string"},
                             "country": {"type": "string"},
-                            "country_code": {"type": "string"}
+                            "country_code": {"type": "string"},
+                            "phone_number": {"type": "string"},
+                            "email": {"type": "string"}
                         },
-                        "required": ["legal_name", "legal_form", "street_name", "house_number", "postal_code", "city", "state", "country", "country_code"],
+                        "required": ["legal_name", "legal_form", "street_name", "house_number", "postal_code", "city", "state", "country", "country_code", "phone_number", "email"],
                         "additionalProperties": False
                     }
                 }
@@ -263,7 +269,9 @@ If a field is not found, use 'n/v'.
             "state": legal_data.get("state", "n/v"),
             "country": country,
             "country_code": country_code,
-            "country_detected": country_code
+            "country_detected": country_code,
+            "phone_number": legal_data.get("phone_number", "n/v"),
+            "email": legal_data.get("email", "n/v")
         }
         
         sources = [{
@@ -313,7 +321,9 @@ If a field is not found, use 'n/v'.
             "state": "n/v",
             "country": "n/v",
             "country_code": "n/v",
-            "country_detected": "n/v"
+            "country_detected": "n/v",
+            "phone_number": "n/v",
+            "email": "n/v"
         }
         
         sources = [{
