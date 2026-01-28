@@ -29,6 +29,7 @@ def _base_ag10_output() -> dict:
                 "founding_year": "n/v",
                 "registration_signals": "n/v",
                 "email": "info@liquisto.com",
+                "phone_number": "+49 711 123456",
             }
         ],
         "relations_delta": [],
