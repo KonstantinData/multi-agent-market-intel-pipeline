@@ -126,27 +126,6 @@ class AG10_1_IdentityLegalDACH(BaseAgent):
         if not api_key:
             return self._fallback_dach_data(company_name)
             
-        # Build DACH-specific search context
-        search_context = f"""
-Company: {company_name}
-Domain: {domain}
-
-Extract Austrian or Swiss legal identity information from the company's Impressum/legal notice.
-Focus on DACH region legal requirements and address formats.
-
-IMPORTANT: Always search for the COMPLETE legal company name, even if the input already contains a legal form.
-For example: "Company AG" might actually be "Company AG & Co. KG" - find the full name.
-
-Find:
-1. Complete legal company name (including ALL legal forms)
-2. Legal form (Austria: GmbH, AG, e.U., OG, KG / Switzerland: AG, GmbH, Einzelfirma)
-3. Address: Street name, house number (may include /Top/Tür for Austria), 4-digit postal code, city, state/canton
-4. Country (Austria/Österreich or Switzerland/Schweiz)
-5. Phone number (e.g., "+43 1 234567" or "+41 44 1234567")
-6. Email address (e.g., "info@company.com")
-7. Only extract information from official company website/Impressum
-"""
-        
         try:
             # Fetch content only from impressum pages
             website_content = self._fetch_impressum_content(domain)
@@ -384,7 +363,7 @@ If a field is not found, use 'n/v'.
                             content += text[:6000]
                             if len(content) > 10000:
                                 return content
-                except Exception as e:
+                except Exception:
                     continue
 
         if not content:

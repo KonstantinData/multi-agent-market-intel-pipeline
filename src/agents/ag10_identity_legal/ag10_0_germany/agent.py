@@ -120,24 +120,6 @@ class AG10_0_IdentityLegalGermany(BaseAgent):
         if not api_key:
             return self._fallback_german_data(company_name)
 
-        # Build German-specific search context
-        search_context = f"""
-Company: {company_name}
-Domain: {domain}
-
-Extract German legal identity information from the company's Impressum (legal notice).
-Focus on German legal requirements and address formats.
-
-IMPORTANT: Always search for the COMPLETE legal company name, even if the input already contains a legal form.
-For example: "IMS Gear SE" might actually be "IMS Gear SE & Co. KGaA" - find the full name.
-
-Find:
-1. Complete legal company name (including ALL legal forms like GmbH, AG, SE & Co. KGaA, etc.)
-2. Legal form (GmbH, UG, AG, SE, KGaA, SE & Co. KGaA, etc.)
-3. German address: Street name, house number, PLZ (5-digit), city, state
-4. Only extract information that appears on the company's official website/Impressum
-"""
-
         try:
             # First try to fetch actual website content
             website_content = self._fetch_website_content(domain)
@@ -218,7 +200,7 @@ If a field is not found, use 'n/v'.
                 except json.JSONDecodeError:
                     pass
 
-        except Exception as e:
+        except Exception:
             pass
 
         return self._fallback_german_data(company_name)
@@ -378,7 +360,7 @@ If a field is not found, use 'n/v'.
                             content += text[:6000]
                             if len(content) > 10000:
                                 return content
-                except Exception as e:
+                except Exception:
                     continue
 
         if not content:
